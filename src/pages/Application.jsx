@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 // Icon components
 const CheckCircle = ({ className }) => (
@@ -136,6 +137,27 @@ export default function Application() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 flex items-center justify-center p-4">
         <div className="max-w-2xl w-full text-center">
+          <Link to="/" className="inline-block mb-8">
+            <svg viewBox="0 0 500 160" xmlns="http://www.w3.org/2000/svg" width="250" className="mx-auto">
+              <defs>
+                <linearGradient id="flowGradSuccess" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style={{stopColor:'#FF5A5F',stopOpacity:1}} />
+                  <stop offset="100%" style={{stopColor:'#E34850',stopOpacity:1}} />
+                </linearGradient>
+              </defs>
+              <circle cx="85" cy="80" r="55" fill="none" stroke="#FF5A5F" strokeWidth="2" opacity="0.3"/>
+              <g transform="translate(40, 45)">
+                <path d="M 20 55 C 20 40, 25 25, 35 15 C 40 8, 45 8, 50 15 C 55 22, 57 30, 55 40 L 50 52 M 30 52 C 32 35, 38 28, 45 28 C 52 28, 58 35, 60 52 M 30 52 C 30 58, 32 62, 35 65 C 40 70, 50 70, 55 65 C 58 62, 60 58, 60 52"
+                      stroke="url(#flowGradSuccess)" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M 35 15 Q 25 12, 18 18" stroke="#FF5A5F" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.5"/>
+                <path d="M 50 15 Q 60 12, 67 18" stroke="#FF5A5F" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.5"/>
+              </g>
+              <text x="160" y="85" fontFamily="'Helvetica Neue', 'Arial', sans-serif" fontSize="42" fontWeight="500" fill="#2C2C2C" letterSpacing="1">
+                Artery Capital
+              </text>
+              <path d="M 160 95 L 440 95" stroke="#FF5A5F" strokeWidth="1.5" opacity="0.3"/>
+            </svg>
+          </Link>
           <div className="mb-8 flex justify-center">
             <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center">
               <CheckCircle className="w-12 h-12 text-green-600" />
@@ -164,7 +186,10 @@ export default function Application() {
               </div>
             ))}
           </div>
-          <p className="text-gray-600">Check your email at <strong>{data.email}</strong> for updates</p>
+          <p className="text-gray-600 mb-6">Check your email at <strong>{data.email}</strong> for updates</p>
+          <Link to="/" className="inline-block px-8 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 font-medium transition">
+            Return to Home
+          </Link>
         </div>
       </div>
     );
@@ -173,6 +198,29 @@ export default function Application() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 py-12 px-4">
       <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-8">
+          <Link to="/" className="inline-block mb-8">
+            <svg viewBox="0 0 500 160" xmlns="http://www.w3.org/2000/svg" width="300" className="mx-auto">
+              <defs>
+                <linearGradient id="flowGradApp" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style={{stopColor:'#FF5A5F',stopOpacity:1}} />
+                  <stop offset="100%" style={{stopColor:'#E34850',stopOpacity:1}} />
+                </linearGradient>
+              </defs>
+              <circle cx="85" cy="80" r="55" fill="none" stroke="#FF5A5F" strokeWidth="2" opacity="0.3"/>
+              <g transform="translate(40, 45)">
+                <path d="M 20 55 C 20 40, 25 25, 35 15 C 40 8, 45 8, 50 15 C 55 22, 57 30, 55 40 L 50 52 M 30 52 C 32 35, 38 28, 45 28 C 52 28, 58 35, 60 52 M 30 52 C 30 58, 32 62, 35 65 C 40 70, 50 70, 55 65 C 58 62, 60 58, 60 52"
+                      stroke="url(#flowGradApp)" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M 35 15 Q 25 12, 18 18" stroke="#FF5A5F" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.5"/>
+                <path d="M 50 15 Q 60 12, 67 18" stroke="#FF5A5F" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.5"/>
+              </g>
+              <text x="160" y="85" fontFamily="'Helvetica Neue', 'Arial', sans-serif" fontSize="42" fontWeight="500" fill="#2C2C2C" letterSpacing="1">
+                Artery Capital
+              </text>
+              <path d="M 160 95 L 440 95" stroke="#FF5A5F" strokeWidth="1.5" opacity="0.3"/>
+            </svg>
+          </Link>
+        </div>
         <div className="text-center mb-12">
           <h1 className="text-4xl font-semibold mb-3 text-gray-900">Start Your Journey</h1>
           <p className="text-lg text-gray-600">Apply for R200,000 funding + strategic partnership</p>
