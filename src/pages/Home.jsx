@@ -104,8 +104,8 @@ export default function Home() {
       </section>
 
       <section className="contact" id="contact">
-        <h2>Ready to build the future?</h2>
-        <p>Let's turn your vision into reality</p>
+        <h2>Partner with Africa's Next Wave</h2>
+        <p>Join us in backing the founders and innovations shaping Africa's future</p>
         <a href="mailto:invest@arterycapital.com" className="contact-email">invest@arterycapital.com</a>
       </section>
 
