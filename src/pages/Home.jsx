@@ -88,7 +88,7 @@ export default function Home() {
         </div>
 
         <div className="hero-text">
-          <h1>Africa's innovation starts here</h1>
+          <h1>For Founders Who Intend to Win</h1>
           <p>We believe the next generation of world-changing companies will be built in Africa. We back the founders brave enough to prove it.</p>
           <Link to="/apply" className="cta-button">Start Your Journey</Link>
         </div>
