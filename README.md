@@ -156,34 +156,61 @@ Artery/
 
 ## Deployment
 
-### Build for Production
+### Deploy to Vercel (Recommended)
+
+The application is optimized for Vercel with both frontend and serverless API functions.
+
+**Quick Deploy:**
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Jaxxtheart/Artery)
+
+**Manual Deployment:**
+
+1. **Connect Repository**:
+   - Go to [vercel.com/new](https://vercel.com/new)
+   - Import your GitHub repository
+   - Framework: Vite (auto-detected)
+
+2. **Configure**:
+   - Build Command: `npm run build`
+   - Output Directory: `dist`
+   - Environment Variables: Leave `VITE_API_URL` empty (uses relative URLs)
+
+3. **Deploy**:
+   - Click "Deploy"
+   - App will be live at `https://your-app.vercel.app`
+
+**Vercel CLI:**
 
 ```bash
-npm run build
-```
-
-This will create a `dist` folder with optimized production files.
-
-### Deploy to Vercel
-
-1. Install Vercel CLI:
-```bash
+# Install CLI
 npm install -g vercel
+
+# Deploy to production
+vercel --prod
 ```
 
-2. Deploy:
-```bash
-vercel
-```
+**Features on Vercel**:
+- ✅ Automatic HTTPS
+- ✅ Global CDN
+- ✅ Serverless API functions
+- ✅ Continuous deployment from Git
+- ✅ Preview deployments for PRs
 
-### Deploy to Netlify
+For detailed deployment guide, see [DEPLOYMENT.md](DEPLOYMENT.md)
 
-1. Build the project:
+### Local Production Build
+
 ```bash
+# Build frontend
 npm run build
-```
 
-2. Deploy the `dist` folder to Netlify via their web interface or CLI
+# Preview production build
+npm run preview
+
+# Test with backend (separate terminal)
+cd backend && npm start
+```
 
 ## Customization
 

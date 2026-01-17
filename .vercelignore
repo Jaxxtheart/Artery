@@ -1,0 +1,24 @@
+# Vercel Ignore File
+# Files and directories to exclude from deployment
+
+# Backend development files (using serverless instead)
+backend/server.js
+backend/test-scoring.js
+backend/.env*
+backend/uploads/
+
+# Development files
+node_modules/
+.git/
+.env*
+.DS_Store
+*.log
+
+# Documentation (optional - remove if you want docs deployed)
+SETUP.md
+SCORING_SYSTEM.md
+
+# Test files
+*.test.js
+*.spec.js
+__tests__/
