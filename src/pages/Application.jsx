@@ -63,6 +63,22 @@ const DollarSign = ({ className }) => (
   </svg>
 );
 
+const Printer = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <polyline points="6 9 6 2 18 2 18 9"></polyline>
+    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+    <rect x="6" y="14" width="12" height="8"></rect>
+  </svg>
+);
+
+const Download = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+    <polyline points="7 10 12 15 17 10"></polyline>
+    <line x1="12" y1="15" x2="12" y2="3"></line>
+  </svg>
+);
+
 // Helper function to normalize data for API
 const normalizeData = (data) => {
   // Map stage values from UI to API format
@@ -204,6 +220,46 @@ export default function Application() {
     }
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleDownload = () => {
+    const reportData = {
+      applicant: {
+        name: data.founderName,
+        email: data.email,
+        company: data.companyName
+      },
+      submittedAt: new Date().toISOString(),
+      scoring: {
+        overallScore: scoring.overallScore,
+        rating: scoring.rating,
+        recommendation: scoring.recommendation,
+        categoryScores: scoring.categoryScores,
+        weights: scoring.weights,
+        strengths: scoring.strengths,
+        concerns: scoring.concerns,
+        nextSteps: scoring.nextSteps
+      },
+      valuation: {
+        current: scoring.valuation.current,
+        projected3Year: scoring.valuation.projected3Year,
+        projected5Year: scoring.valuation.projected5Year
+      }
+    };
+
+    const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `artery-capital-results-${data.companyName.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   if (done && scoring) {
     const ratingColors = {
       'Exceptional': 'bg-green-100 text-green-800 border-green-300',
@@ -218,9 +274,27 @@ export default function Application() {
                        scoring.overallScore >= 50 ? 'text-yellow-600' : 'text-orange-600';
 
     return (
+      <>
+        <style>{`
+          @media print {
+            body {
+              print-color-adjust: exact;
+              -webkit-print-color-adjust: exact;
+            }
+            .print\\:hidden {
+              display: none !important;
+            }
+            .no-print {
+              display: none !important;
+            }
+            @page {
+              margin: 1cm;
+            }
+          }
+        `}</style>
       <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 py-8 px-4">
         <div className="max-w-4xl mx-auto">
-          <Link to="/" className="inline-block mb-8">
+          <Link to="/" className="inline-block mb-8 print:pointer-events-none">
             <svg viewBox="0 0 500 160" xmlns="http://www.w3.org/2000/svg" width="250">
               <defs>
                 <linearGradient id="flowGradSuccess" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -251,6 +325,24 @@ export default function Application() {
             </div>
             <h1 className="text-4xl font-semibold mb-3 text-gray-900">Application Submitted!</h1>
             <p className="text-lg text-gray-600">Your application has been evaluated using our AI-powered scoring system</p>
+          </div>
+
+          {/* Print/Download Actions */}
+          <div className="flex gap-4 justify-center mb-8 print:hidden">
+            <button
+              onClick={handlePrint}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:border-gray-400 hover:bg-gray-50 font-medium transition"
+            >
+              <Printer className="w-5 h-5" />
+              Print Results
+            </button>
+            <button
+              onClick={handleDownload}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-red-500 border-2 border-red-500 text-white rounded-lg hover:bg-red-600 hover:border-red-600 font-medium transition"
+            >
+              <Download className="w-5 h-5" />
+              Download Report
+            </button>
           </div>
 
           {/* Overall Score */}
@@ -364,7 +456,7 @@ export default function Application() {
             ))}
           </div>
 
-          <div className="text-center">
+          <div className="text-center print:hidden">
             <p className="text-gray-600 mb-6">
               We'll be in touch at <strong>{data.email}</strong> with next steps
             </p>
@@ -372,8 +464,17 @@ export default function Application() {
               Return to Home
             </Link>
           </div>
+
+          {/* Print Footer */}
+          <div className="hidden print:block text-center text-sm text-gray-600 mt-8 pt-6 border-t border-gray-200">
+            <p>Artery Capital Application Results</p>
+            <p>Generated: {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}</p>
+            <p className="mt-2">Applicant: {data.founderName} ({data.email})</p>
+            <p>Company: {data.companyName}</p>
+          </div>
         </div>
       </div>
+      </>
     );
   }
 
