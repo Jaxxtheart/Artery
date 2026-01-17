@@ -633,7 +633,6 @@ export default function Application() {
               </p>
             </div>
           )}
-          </div>
         </div>
       </div>
     </div>
