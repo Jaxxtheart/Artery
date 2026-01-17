@@ -223,7 +223,7 @@ export default function Application() {
         </div>
         <div className="text-center mb-12">
           <h1 className="text-4xl font-semibold mb-3 text-gray-900">Start Your Journey</h1>
-          <p className="text-lg text-gray-600">Apply for R200,000 funding + strategic partnership</p>
+          <p className="text-lg text-gray-600">Apply for $15,000 funding + strategic partnership</p>
         </div>
 
         <div className="mb-12 flex items-center justify-between">
@@ -374,7 +374,7 @@ export default function Application() {
                   onChange={(e) => upd('fundingAmount', e.target.value)}
                   className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-red-500 outline-none ${errors.fundingAmount ? 'border-red-500' : 'border-gray-300'}`}
                 >
-                  {['', 'R200,000 (Standard)', 'Less than R200,000', 'More than R200,000'].map(o => <option key={o} value={o}>{o || 'Select'}</option>)}
+                  {['', '$15,000 (Standard)', 'Less than $15,000', 'More than $15,000'].map(o => <option key={o} value={o}>{o || 'Select'}</option>)}
                 </select>
                 {errors.fundingAmount && <p className="text-red-500 text-sm mt-1">{errors.fundingAmount}</p>}
               </div>

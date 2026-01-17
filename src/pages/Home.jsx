@@ -98,7 +98,7 @@ export default function Home() {
 
       <section className="philosophy">
         <div className="section-header">
-          <h2>R200,000. Plus everything else.</h2>
+          <h2>$15,000. Plus everything else.</h2>
           <p className="section-subtitle">We give African startups what they need most. Capital to start. Strategic guidance to scale. Partnership to win.</p>
         </div>
       </section>
