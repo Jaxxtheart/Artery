@@ -93,6 +93,31 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 py-8 px-4">
       <div className="max-w-7xl mx-auto">
+        {/* Logo */}
+        <div className="mb-8">
+          <Link to="/" className="inline-block">
+            <svg viewBox="0 0 500 160" xmlns="http://www.w3.org/2000/svg" width="250">
+              <defs>
+                <linearGradient id="flowGradDashboard" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style={{stopColor:'#FF5A5F',stopOpacity:1}} />
+                  <stop offset="100%" style={{stopColor:'#E34850',stopOpacity:1}} />
+                </linearGradient>
+              </defs>
+              <circle cx="85" cy="80" r="55" fill="none" stroke="#FF5A5F" strokeWidth="2" opacity="0.3"/>
+              <g transform="translate(40, 45)">
+                <path d="M 20 55 C 20 40, 25 25, 35 15 C 40 8, 45 8, 50 15 C 55 22, 57 30, 55 40 L 50 52 M 30 52 C 32 35, 38 28, 45 28 C 52 28, 58 35, 60 52 M 30 52 C 30 58, 32 62, 35 65 C 40 70, 50 70, 55 65 C 58 62, 60 58, 60 52"
+                      stroke="url(#flowGradDashboard)" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M 35 15 Q 25 12, 18 18" stroke="#FF5A5F" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.5"/>
+                <path d="M 50 15 Q 60 12, 67 18" stroke="#FF5A5F" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.5"/>
+              </g>
+              <text x="160" y="85" fontFamily="'Helvetica Neue', 'Arial', sans-serif" fontSize="42" fontWeight="500" fill="#2C2C2C" letterSpacing="1">
+                Artery Capital
+              </text>
+              <path d="M 160 95 L 440 95" stroke="#FF5A5F" strokeWidth="1.5" opacity="0.3"/>
+            </svg>
+          </Link>
+        </div>
+
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
