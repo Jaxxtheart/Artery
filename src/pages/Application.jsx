@@ -74,6 +74,9 @@ export default function Application() {
   });
   const [errors, setErrors] = useState({});
   const [done, setDone] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [scoring, setScoring] = useState(null);
+  const [apiError, setApiError] = useState(null);
 
   const steps = [
     { n: 1, t: 'About You', Icon: Users },
@@ -117,10 +120,42 @@ export default function Application() {
 
   const next = () => val(step) && setStep(p => Math.min(p + 1, 5));
   const prev = () => setStep(p => Math.max(p - 1, 1));
-  const submit = () => {
-    if (val(5)) {
-      console.log('Application submitted:', data);
-      setDone(true);
+
+  const submit = async () => {
+    if (!val(5)) return;
+
+    setLoading(true);
+    setApiError(null);
+
+    try {
+      // Create FormData for file upload support
+      const formData = new FormData();
+      Object.keys(data).forEach(key => {
+        if (data[key] !== null && data[key] !== '') {
+          formData.append(key, data[key]);
+        }
+      });
+
+      // Call backend API
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const response = await fetch(`${API_URL}/api/applications/submit`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setScoring(result.scoring);
+        setDone(true);
+      } else {
+        setApiError(result.error || 'Failed to submit application');
+      }
+    } catch (error) {
+      console.error('Submission error:', error);
+      setApiError('Unable to connect to server. Please try again later.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -133,12 +168,24 @@ export default function Application() {
     }
   };
 
-  if (done) {
+  if (done && scoring) {
+    const ratingColors = {
+      'Exceptional': 'bg-green-100 text-green-800 border-green-300',
+      'Strong': 'bg-blue-100 text-blue-800 border-blue-300',
+      'Good': 'bg-yellow-100 text-yellow-800 border-yellow-300',
+      'Moderate': 'bg-orange-100 text-orange-800 border-orange-300',
+      'Needs Development': 'bg-red-100 text-red-800 border-red-300'
+    };
+
+    const scoreColor = scoring.overallScore >= 75 ? 'text-green-600' :
+                       scoring.overallScore >= 65 ? 'text-blue-600' :
+                       scoring.overallScore >= 50 ? 'text-yellow-600' : 'text-orange-600';
+
     return (
-      <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 flex items-center justify-center p-4">
-        <div className="max-w-2xl w-full text-center">
+      <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 py-8 px-4">
+        <div className="max-w-4xl mx-auto">
           <Link to="/" className="inline-block mb-8">
-            <svg viewBox="0 0 500 160" xmlns="http://www.w3.org/2000/svg" width="250" className="mx-auto">
+            <svg viewBox="0 0 500 160" xmlns="http://www.w3.org/2000/svg" width="250">
               <defs>
                 <linearGradient id="flowGradSuccess" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" style={{stopColor:'#FF5A5F',stopOpacity:1}} />
@@ -158,38 +205,137 @@ export default function Application() {
               <path d="M 160 95 L 440 95" stroke="#FF5A5F" strokeWidth="1.5" opacity="0.3"/>
             </svg>
           </Link>
-          <div className="mb-8 flex justify-center">
-            <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center">
-              <CheckCircle className="w-12 h-12 text-green-600" />
+
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="mb-6 flex justify-center">
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-10 h-10 text-green-600" />
+              </div>
+            </div>
+            <h1 className="text-4xl font-semibold mb-3 text-gray-900">Application Submitted!</h1>
+            <p className="text-lg text-gray-600">Your application has been evaluated using our AI-powered scoring system</p>
+          </div>
+
+          {/* Overall Score */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 mb-6">
+            <div className="text-center mb-6">
+              <div className={`text-7xl font-bold mb-3 ${scoreColor}`}>{scoring.overallScore}</div>
+              <div className="text-2xl text-gray-500 mb-4">out of 100</div>
+              <span className={`inline-block px-6 py-2 rounded-full border-2 font-semibold ${ratingColors[scoring.rating]}`}>
+                {scoring.rating}
+              </span>
+            </div>
+            <div className="border-t border-gray-200 pt-6 mt-6">
+              <p className="text-lg font-medium text-gray-900 mb-2">Recommendation</p>
+              <p className="text-gray-700">{scoring.recommendation}</p>
             </div>
           </div>
-          <h1 className="text-4xl font-semibold mb-4 text-gray-900">Application Received</h1>
-          <p className="text-xl text-gray-600 mb-8">
-            Thank you for applying to Artery Capital. We'll review your application and get back to you within 5 business days.
-          </p>
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8 text-left">
-            <h3 className="font-semibold text-lg mb-4 text-gray-900">What happens next?</h3>
-            {[
-              { title: 'Initial Review (1-2 days)', desc: 'Our team reviews your application for fit and potential' },
-              { title: 'Discovery Call', desc: '30-minute video call to discuss your vision' },
-              { title: 'Deep Dive Session', desc: 'Detailed discussion of business model and roadmap' },
-              { title: 'Investment Decision', desc: 'Final review and partnership terms' }
-            ].map((item, i) => (
+
+          {/* Valuation */}
+          <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-lg shadow-sm border border-red-200 p-8 mb-6">
+            <h2 className="text-2xl font-semibold mb-6 text-gray-900">Estimated Valuation</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white rounded-lg p-6 border border-gray-200">
+                <p className="text-sm font-medium text-gray-600 mb-2">Current Valuation</p>
+                <p className="text-3xl font-bold text-gray-900">${(scoring.valuation.current.amount / 1000).toFixed(0)}K</p>
+                <p className="text-xs text-gray-500 mt-2">Based on current metrics</p>
+              </div>
+              <div className="bg-white rounded-lg p-6 border border-gray-200">
+                <p className="text-sm font-medium text-gray-600 mb-2">3-Year Projection</p>
+                <p className="text-3xl font-bold text-blue-600">${(scoring.valuation.projected3Year.amount / 1000000).toFixed(1)}M</p>
+                <p className="text-xs text-gray-500 mt-2">{scoring.valuation.projected3Year.assumptions.growthMultiplier}x growth multiplier</p>
+              </div>
+              <div className="bg-white rounded-lg p-6 border border-gray-200">
+                <p className="text-sm font-medium text-gray-600 mb-2">5-Year Projection</p>
+                <p className="text-3xl font-bold text-green-600">${(scoring.valuation.projected5Year.amount / 1000000).toFixed(1)}M</p>
+                <p className="text-xs text-gray-500 mt-2">{scoring.valuation.projected5Year.assumptions.growthMultiplier}x growth multiplier</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Category Scores */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 mb-6">
+            <h2 className="text-2xl font-semibold mb-6 text-gray-900">Evaluation Breakdown</h2>
+            <div className="space-y-4">
+              {Object.entries(scoring.categoryScores).map(([category, score]) => {
+                const categoryNames = {
+                  founderQuality: 'Founder Quality',
+                  traction: 'Traction & Metrics',
+                  productMarketFit: 'Product-Market Fit',
+                  marketOpportunity: 'Market Opportunity',
+                  innovation: 'Innovation',
+                  africanImpact: 'African Impact',
+                  sustainability: 'Sustainability'
+                };
+                const weight = scoring.weights[category];
+                const barColor = score >= 75 ? 'bg-green-500' :
+                               score >= 60 ? 'bg-blue-500' :
+                               score >= 40 ? 'bg-yellow-500' : 'bg-red-500';
+                return (
+                  <div key={category}>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-medium text-gray-900">{categoryNames[category]}</span>
+                      <span className="text-sm text-gray-600">{score}/100 ({weight}% weight)</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-3">
+                      <div className={`${barColor} h-3 rounded-full transition-all`} style={{width: `${score}%`}}></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Strengths & Concerns */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="font-semibold text-lg mb-4 text-gray-900">Key Strengths</h3>
+              <ul className="space-y-2">
+                {scoring.strengths.map((strength, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="text-green-600 flex-shrink-0">✓</span>
+                    <span className="text-sm text-gray-700">{strength}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="font-semibold text-lg mb-4 text-gray-900">Areas for Improvement</h3>
+              <ul className="space-y-2">
+                {scoring.concerns.map((concern, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="text-orange-600 flex-shrink-0">•</span>
+                    <span className="text-sm text-gray-700">{concern}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Next Steps */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 mb-6">
+            <h3 className="font-semibold text-lg mb-4 text-gray-900">Next Steps</h3>
+            {scoring.nextSteps.map((step, i) => (
               <div key={i} className="flex gap-3 mb-4 last:mb-0">
                 <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
                   <span className="text-red-600 font-semibold text-sm">{i + 1}</span>
                 </div>
                 <div>
-                  <p className="font-medium text-gray-900">{item.title}</p>
-                  <p className="text-sm text-gray-600">{item.desc}</p>
+                  <p className="text-gray-700">{step}</p>
                 </div>
               </div>
             ))}
           </div>
-          <p className="text-gray-600 mb-6">Check your email at <strong>{data.email}</strong> for updates</p>
-          <Link to="/" className="inline-block px-8 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 font-medium transition">
-            Return to Home
-          </Link>
+
+          <div className="text-center">
+            <p className="text-gray-600 mb-6">
+              We'll be in touch at <strong>{data.email}</strong> with next steps
+            </p>
+            <Link to="/" className="inline-block px-8 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 font-medium transition">
+              Return to Home
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -428,10 +574,29 @@ export default function Application() {
                 <ArrowRight className="w-4 h-4" />
               </button>
             ) : (
-              <button onClick={submit} className="px-8 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 font-medium transition">
-                Submit Application
+              <button
+                onClick={submit}
+                disabled={loading}
+                className={`px-8 py-3 bg-red-500 text-white rounded-lg font-medium transition ${
+                  loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-600'
+                }`}
+              >
+                {loading ? 'Evaluating Application...' : 'Submit Application'}
               </button>
             )}
+          </div>
+
+          {/* API Error Message */}
+          {apiError && step === 5 && (
+            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-800 text-sm">
+                <strong>Error:</strong> {apiError}
+              </p>
+              <p className="text-red-600 text-xs mt-2">
+                Please check your internet connection or try again later. If the problem persists, contact support.
+              </p>
+            </div>
+          )}
           </div>
         </div>
       </div>
