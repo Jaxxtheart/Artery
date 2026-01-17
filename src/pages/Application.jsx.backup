@@ -63,39 +63,6 @@ const DollarSign = ({ className }) => (
   </svg>
 );
 
-// Helper function to normalize data for API
-const normalizeData = (data) => {
-  // Map stage values from UI to API format
-  const stageMap = {
-    'Idea Stage': 'idea',
-    'Prototype': 'prototype',
-    'MVP': 'mvp',
-    'Early Traction': 'revenue',
-    'Growing': 'revenue',
-    'Scaling': 'scaling'
-  };
-
-  // Map industry values from UI to API format
-  const industryMap = {
-    'Fintech': 'fintech',
-    'Healthcare': 'healthtech',
-    'Education': 'edtech',
-    'Agriculture': 'agritech',
-    'E-commerce': 'e-commerce',
-    'Logistics': 'logistics',
-    'Energy': 'cleantech',
-    'SaaS': 'saas',
-    'Other': 'other'
-  };
-
-  return {
-    ...data,
-    stage: stageMap[data.stage] || data.stage.toLowerCase(),
-    industry: industryMap[data.industry] || data.industry.toLowerCase(),
-    country: data.country.toLowerCase()
-  };
-};
-
 export default function Application() {
   const [step, setStep] = useState(1);
   const [data, setData] = useState({
@@ -161,19 +128,16 @@ export default function Application() {
     setApiError(null);
 
     try {
-      // Normalize data before sending to API
-      const normalizedData = normalizeData(data);
-
       // Create FormData for file upload support
       const formData = new FormData();
-      Object.keys(normalizedData).forEach(key => {
-        if (normalizedData[key] !== null && normalizedData[key] !== '') {
-          formData.append(key, normalizedData[key]);
+      Object.keys(data).forEach(key => {
+        if (data[key] !== null && data[key] !== '') {
+          formData.append(key, data[key]);
         }
       });
 
-      // Call backend API - use empty string for production (relative URL)
-      const API_URL = import.meta.env.VITE_API_URL || '';
+      // Call backend API
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
       const response = await fetch(`${API_URL}/api/applications/submit`, {
         method: 'POST',
         body: formData
@@ -470,8 +434,8 @@ export default function Application() {
               </div>
               {[
                 { k: 'country', l: 'Country *', opts: ['', 'South Africa', 'Nigeria', 'Kenya', 'Ghana', 'Egypt', 'Rwanda', 'Other'] },
-                { k: 'industry', l: 'Industry *', opts: ['', 'Fintech', 'Healthcare', 'Education', 'Agriculture', 'E-commerce', 'Logistics', 'Energy', 'SaaS', 'Other'] },
-                { k: 'stage', l: 'Stage *', opts: ['', 'Idea Stage', 'Prototype', 'MVP', 'Early Traction', 'Growing', 'Scaling'] }
+                { k: 'industry', l: 'Industry *', opts: ['', 'Fintech', 'Healthcare', 'Education', 'Agriculture', 'E-commerce', 'Logistics', 'Energy', 'Other'] },
+                { k: 'stage', l: 'Stage *', opts: ['', 'Idea Stage', 'MVP', 'Early Traction', 'Growing', 'Scaling'] }
               ].map(f => (
                 <div key={f.k}>
                   <label className="block text-sm font-medium text-gray-700 mb-2">{f.l}</label>

@@ -5,7 +5,7 @@
 
 const multer = require('multer');
 const path = require('path');
-const ScoringEngine = require('../../backend/services/scoringEngine');
+const ScoringEngine = require('../scoringEngine.cjs');
 
 // Configure multer for memory storage (Vercel doesn't have persistent file system)
 const storage = multer.memoryStorage();
