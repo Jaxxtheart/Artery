@@ -5,6 +5,7 @@
 
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const ScoringEngine = require('../scoringEngine.cjs');
 
 // Configure multer for memory storage (Vercel doesn't have persistent file system)
@@ -116,10 +117,41 @@ module.exports = async (req, res) => {
     // Log for monitoring
     console.log(`NEW APPLICATION - ${applicationData.companyName} - Score: ${scoringResult.overallScore}/100`);
 
+    // Store the application with scoring data
+    const applicationId = `app-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const storedApplication = {
+      id: applicationId,
+      applicant: {
+        name: applicationData.founderName,
+        email: applicationData.email,
+        phone: applicationData.phone,
+        linkedin: applicationData.linkedin,
+        company: applicationData.companyName
+      },
+      submittedAt: new Date().toISOString(),
+      applicationData: applicationData,
+      scoring: scoringResult
+    };
+
+    // Try to store in filesystem (works for local dev)
+    try {
+      const DATA_DIR = path.join(process.cwd(), 'data', 'applications');
+      if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+      }
+      const filePath = path.join(DATA_DIR, `${applicationId}.json`);
+      fs.writeFileSync(filePath, JSON.stringify(storedApplication, null, 2));
+      console.log(`Application stored: ${applicationId}`);
+    } catch (storageError) {
+      console.warn('Storage failed (expected on Vercel):', storageError.message);
+      // Continue anyway - application was still processed
+    }
+
     // Return response with scoring
     res.status(201).json({
       success: true,
-      scoring: scoringResult,
+      applicationId: applicationId,
+      message: 'Application submitted successfully',
       nextSteps: scoringResult.overallScore >= 70
         ? 'Our team will review your application within 3-5 business days.'
         : 'Thank you for your application. We will be in touch if we need additional information.'
