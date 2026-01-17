@@ -19,6 +19,19 @@ const FileText = ({ className }) => (
   </svg>
 );
 
+const ChevronRight = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <polyline points="9 18 15 12 9 6"></polyline>
+  </svg>
+);
+
+const Eye = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+    <circle cx="12" cy="12" r="3"></circle>
+  </svg>
+);
+
 export default function AdminDashboard() {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -124,7 +137,12 @@ export default function AdminDashboard() {
         {/* Applications List */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-6 border-b border-gray-200">
-            <h2 className="text-2xl font-semibold text-gray-900">Applications</h2>
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-semibold text-gray-900">Applications</h2>
+                <p className="text-sm text-gray-500 mt-1">Click on any application to view detailed evaluation results</p>
+              </div>
+            </div>
           </div>
 
           {loading && (
@@ -145,7 +163,14 @@ export default function AdminDashboard() {
           {!loading && !error && applications.length === 0 && (
             <div className="p-12 text-center">
               <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-600">No applications yet</p>
+              <p className="text-lg font-medium text-gray-900 mb-2">No applications yet</p>
+              <p className="text-gray-600 mb-4">Applications will appear here once founders submit them</p>
+              <Link
+                to="/apply"
+                className="inline-block px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
+              >
+                Submit Test Application
+              </Link>
             </div>
           )}
 
@@ -179,10 +204,16 @@ export default function AdminDashboard() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {applications.map((app) => (
-                    <tr key={app.id} className="hover:bg-gray-50">
+                    <tr
+                      key={app.id}
+                      onClick={() => navigate(`/admin/application/${app.id}`)}
+                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-medium text-gray-900">{app.applicant.company}</div>
-                        <div className="text-sm text-gray-500">{app.applicationData?.country}</div>
+                        <div className="font-medium text-gray-900 hover:text-red-600 transition-colors">
+                          {app.applicant.company}
+                        </div>
+                        <div className="text-sm text-gray-500 capitalize">{app.applicationData?.country}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{app.applicant.name}</div>
@@ -204,12 +235,11 @@ export default function AdminDashboard() {
                         {new Date(app.submittedAt).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <Link
-                          to={`/admin/application/${app.id}`}
-                          className="text-red-600 hover:text-red-700 font-medium"
-                        >
-                          View Details
-                        </Link>
+                        <div className="inline-flex items-center gap-2 text-red-600 hover:text-red-700 font-medium">
+                          <Eye className="w-4 h-4" />
+                          <span>View Details</span>
+                          <ChevronRight className="w-4 h-4" />
+                        </div>
                       </td>
                     </tr>
                   ))}
