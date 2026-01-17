@@ -1,0 +1,30 @@
+# Vercel Ignore File
+# Files and directories to exclude from deployment
+
+# Backend development files (using serverless instead)
+backend/
+# Note: api/ folder is NOT ignored - it contains serverless functions
+
+# Development files
+node_modules/
+.git/
+.env
+.env.local
+.DS_Store
+*.log
+
+# Documentation (optional - remove if you want docs deployed)
+SETUP.md
+SCORING_SYSTEM.md
+BUGFIXES.md
+DEPLOYMENT.md
+
+# Test files
+test-*.js
+test-*.cjs
+*.test.js
+*.spec.js
+__tests__/
+
+# Backup files
+*.backup
