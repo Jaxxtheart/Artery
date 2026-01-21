@@ -1,11 +1,19 @@
 /**
  * Vercel Serverless Function - Application Submission
  * Endpoint: /api/applications/submit
+ *
+ * Phase 4 Backend Integration:
+ * - Supabase PostgreSQL database storage
+ * - Resend email notifications
+ * - IP address and user agent tracking
+ * - AI-powered scoring algorithm
  */
 
 const multer = require('multer');
 const path = require('path');
 const ScoringEngine = require('../scoringEngine.cjs');
+const { saveApplication } = require('../../lib/supabase');
+const { sendApplicationEmails } = require('../../lib/email-service');
 
 // Configure multer for memory storage (Vercel doesn't have persistent file system)
 const storage = multer.memoryStorage();
@@ -25,6 +33,30 @@ const upload = multer({
 
 // Initialize scoring engine
 const scoringEngine = new ScoringEngine();
+
+/**
+ * Extract client IP address from request
+ * Works with Vercel's x-forwarded-for header
+ */
+function getClientIP(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  const realIp = req.headers['x-real-ip'];
+
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+  if (realIp) {
+    return realIp;
+  }
+  return req.connection?.remoteAddress || 'unknown';
+}
+
+/**
+ * Extract user agent from request
+ */
+function getUserAgent(req) {
+  return req.headers['user-agent'] || 'unknown';
+}
 
 // Helper to run middleware in serverless
 function runMiddleware(req, res, fn) {
@@ -66,6 +98,10 @@ module.exports = async (req, res) => {
     // Run multer middleware
     await runMiddleware(req, res, upload.single('pitchDeck'));
 
+    // Extract client metadata
+    const ipAddress = getClientIP(req);
+    const userAgent = getUserAgent(req);
+
     // Extract application data
     const applicationData = {
       // Step 1: About You
@@ -95,7 +131,8 @@ module.exports = async (req, res) => {
       fundingAmount: req.body.fundingAmount,
       useOfFunds: req.body.useOfFunds,
       runway: req.body.runway,
-      pitchDeck: req.file ? req.file.originalname : null
+      pitchDeck: req.file ? req.file.originalname : null,
+      pitchDeckUrl: null // TODO: Upload to Supabase Storage in future
     };
 
     // Validate required fields
@@ -114,7 +151,38 @@ module.exports = async (req, res) => {
     const scoringResult = scoringEngine.scoreApplication(applicationData);
 
     // Log for monitoring
-    console.log(`NEW APPLICATION - ${applicationData.companyName} - Score: ${scoringResult.overallScore}/100`);
+    console.log(`📋 NEW APPLICATION - ${applicationData.companyName} - Score: ${scoringResult.overallScore}/100`);
+    console.log(`👤 Founder: ${applicationData.founderName} (${applicationData.email})`);
+    console.log(`🌍 Location: ${applicationData.country} | Industry: ${applicationData.industry}`);
+    console.log(`📊 IP: ${ipAddress} | User Agent: ${userAgent.substring(0, 50)}...`);
+
+    // Save to database (Phase 4)
+    try {
+      const savedApplication = await saveApplication(applicationData, {
+        ipAddress,
+        userAgent
+      });
+      console.log(`✅ Application saved to database with ID: ${savedApplication.id}`);
+    } catch (dbError) {
+      // Don't fail the request if database save fails
+      console.error('⚠️  Database save failed:', dbError.message);
+      console.error('Continuing without database storage...');
+    }
+
+    // Send email notifications (Phase 4)
+    try {
+      const emailResults = await sendApplicationEmails(applicationData, scoringResult);
+
+      if (emailResults.errors && emailResults.errors.length > 0) {
+        console.warn('⚠️  Some emails failed:', emailResults.errors);
+      } else {
+        console.log('✅ Email notifications sent successfully');
+      }
+    } catch (emailError) {
+      // Don't fail the request if email sending fails
+      console.error('⚠️  Email sending failed:', emailError.message);
+      console.error('Continuing without email notifications...');
+    }
 
     // Return response with scoring
     res.status(201).json({
@@ -122,11 +190,12 @@ module.exports = async (req, res) => {
       scoring: scoringResult,
       nextSteps: scoringResult.overallScore >= 70
         ? 'Our team will review your application within 3-5 business days.'
-        : 'Thank you for your application. We will be in touch if we need additional information.'
+        : 'Thank you for your application. We will be in touch if we need additional information.',
+      message: 'Application submitted successfully! Check your email for confirmation.'
     });
 
   } catch (error) {
-    console.error('Application submission error:', error);
+    console.error('❌ Application submission error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to process application',
