@@ -1,5 +1,20 @@
 # Phase 4: Backend Integration - Implementation Guide
 
+## ⚠️ CRITICAL: Admin System Must Always Be Present
+
+**THE ADMIN SYSTEM IS A CORE FEATURE** and must **NEVER** be removed or excluded. The admin system includes:
+- `src/pages/Admin.jsx` - Admin login page
+- `src/pages/AdminDashboard.jsx` - Application list view
+- `src/pages/AdminApplicationDetail.jsx` - Detailed application view
+- `api/applications/list.js` - API endpoint for listing applications
+- `api/applications/get.js` - API endpoint for single application
+- Admin routes in `src/App.jsx`
+- Admin link in `src/pages/Home.jsx` footer
+
+**See ADMIN_SYSTEM.md for complete admin documentation.**
+
+---
+
 ## ✅ What Was Implemented
 
 Phase 4 adds full backend integration to the Artery Capital application portal, enabling:
@@ -8,8 +23,9 @@ Phase 4 adds full backend integration to the Artery Capital application portal, 
 - **Resend Email Service** - Automated email notifications
 - **IP Address & User Agent Tracking** - Security and analytics
 - **Database Schema** - Structured data with indexes and RLS policies
+- **Admin Dashboard Integration** - Admin system fully integrated with database
 
-## 📁 New Files Created
+## 📁 Files Created/Modified
 
 ```
 artery-capital/
@@ -19,9 +35,19 @@ artery-capital/
 │   └── email-templates.js   # HTML email templates
 ├── api/
 │   └── applications/
-│       └── submit.js        # Updated with Phase 4 integration
+│       ├── submit.js        # Updated with Phase 4 integration
+│       ├── list.js          # Admin: List all applications
+│       └── get.js           # Admin: Get single application
+├── src/
+│   ├── pages/
+│   │   ├── Admin.jsx                    # Admin login (RESTORED)
+│   │   ├── AdminDashboard.jsx           # Admin dashboard (RESTORED)
+│   │   └── AdminApplicationDetail.jsx   # Admin detail view (RESTORED)
+│   ├── App.jsx              # Updated with admin routes
+│   └── pages/Home.jsx       # Updated with admin link
 ├── schema.sql               # PostgreSQL database schema
-└── PHASE4_IMPLEMENTATION.md # This file
+├── PHASE4_IMPLEMENTATION.md # Phase 4 setup guide
+└── ADMIN_SYSTEM.md          # Admin system documentation (NEW)
 ```
 
 ## 🔧 Setup Instructions
@@ -74,6 +100,9 @@ RESEND_API_KEY=re_your_api_key_here
 ADMIN_EMAIL=invest@arterycapital.com
 FROM_EMAIL=Artery Capital <noreply@arterycapital.com>
 
+# Admin Dashboard (REQUIRED)
+ADMIN_PASSWORD=admin123
+
 # App
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
@@ -88,9 +117,10 @@ Add environment variables in Vercel Dashboard:
    - `RESEND_API_KEY`
    - `ADMIN_EMAIL`
    - `FROM_EMAIL`
+   - `ADMIN_PASSWORD` **(REQUIRED FOR ADMIN ACCESS)**
    - `NEXT_PUBLIC_APP_URL`
 
-⚠️ **Important**: Use "Production" environment for all variables
+⚠️ **Important**: Use "Production" environment for all variables. Change `ADMIN_PASSWORD` from default!
 
 ### 6. Test the Integration
 
