@@ -6,7 +6,7 @@
  * Requires admin authentication
  */
 
-const { getAllApplications } = require('../../lib/supabase');
+const { getAllApplications } = require('../lib/supabase');
 
 // Simple admin password check (in production, use proper authentication)
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';

@@ -6,7 +6,7 @@
  * Requires admin authentication
  */
 
-const { getApplication } = require('../../lib/supabase');
+const { getApplication } = require('../lib/supabase');
 const ScoringEngine = require('../scoringEngine.cjs');
 
 // Simple admin password check (in production, use proper authentication)
