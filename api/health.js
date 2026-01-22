@@ -5,7 +5,14 @@
  * Checks if all services are configured correctly
  */
 
-const { supabase } = require('../lib/supabase');
+// Try to require supabase, but don't crash if it fails
+let supabase = null;
+try {
+  const supabaseModule = require('../lib/supabase');
+  supabase = supabaseModule.supabase;
+} catch (error) {
+  console.error('Failed to load supabase module:', error.message);
+}
 
 module.exports = async (req, res) => {
   // Enable CORS
