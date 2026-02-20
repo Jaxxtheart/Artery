@@ -1,8 +1,13 @@
 -- Artery Capital Database Schema
 -- Phase 4: Backend Integration
 -- PostgreSQL (Supabase)
+--
+-- This file is idempotent — safe to run multiple times on the same database.
 
--- Create applications table
+-- ============================================================
+-- Applications Table
+-- ============================================================
+
 CREATE TABLE IF NOT EXISTS applications (
   -- Primary key
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -63,7 +68,8 @@ CREATE INDEX IF NOT EXISTS idx_applications_company_name ON applications(company
 -- Enable Row Level Security (RLS)
 ALTER TABLE applications ENABLE ROW LEVEL SECURITY;
 
--- Create policy for service role (full access)
+-- Policies (drop first so the script is re-runnable)
+DROP POLICY IF EXISTS "Service role has full access" ON applications;
 CREATE POLICY "Service role has full access"
   ON applications
   FOR ALL
@@ -71,14 +77,14 @@ CREATE POLICY "Service role has full access"
   USING (true)
   WITH CHECK (true);
 
--- Create policy for authenticated users (read only for now)
+DROP POLICY IF EXISTS "Authenticated users can read all applications" ON applications;
 CREATE POLICY "Authenticated users can read all applications"
   ON applications
   FOR SELECT
   TO authenticated
   USING (true);
 
--- Add updated_at trigger
+-- updated_at trigger
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -87,12 +93,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS update_applications_updated_at ON applications;
 CREATE TRIGGER update_applications_updated_at
   BEFORE UPDATE ON applications
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
--- Create view for admin dashboard (optional)
+-- Summary view (optional, used by admin dashboard)
 CREATE OR REPLACE VIEW applications_summary AS
 SELECT
   status,
@@ -130,6 +137,7 @@ CREATE INDEX IF NOT EXISTS idx_research_papers_is_published ON research_papers(i
 
 ALTER TABLE research_papers ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Service role has full access to research_papers" ON research_papers;
 CREATE POLICY "Service role has full access to research_papers"
   ON research_papers
   FOR ALL
@@ -137,12 +145,14 @@ CREATE POLICY "Service role has full access to research_papers"
   USING (true)
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Anyone can read published research_papers" ON research_papers;
 CREATE POLICY "Anyone can read published research_papers"
   ON research_papers
   FOR SELECT
   TO anon, authenticated
   USING (is_published = true);
 
+DROP TRIGGER IF EXISTS update_research_papers_updated_at ON research_papers;
 CREATE TRIGGER update_research_papers_updated_at
   BEFORE UPDATE ON research_papers
   FOR EACH ROW
