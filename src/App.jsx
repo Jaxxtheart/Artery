@@ -5,6 +5,7 @@ import Admin from './pages/Admin'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminApplicationDetail from './pages/AdminApplicationDetail'
 import Research from './pages/Research'
+import ResearchPaper from './pages/ResearchPaper'
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/apply" element={<Application />} />
           <Route path="/research" element={<Research />} />
+          <Route path="/research/:id" element={<ResearchPaper />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/application/:id" element={<AdminApplicationDetail />} />

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 // ── SVG icons ────────────────────────────────────────────────
 const FileText = ({ className }) => (
@@ -12,19 +12,10 @@ const FileText = ({ className }) => (
   </svg>
 );
 
-const Download = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-    <polyline points="7 10 12 15 17 10" />
-    <line x1="12" y1="15" x2="12" y2="3" />
-  </svg>
-);
-
-const ExternalLink = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-    <polyline points="15 3 21 3 21 9" />
-    <line x1="10" y1="14" x2="21" y2="3" />
+const BookOpen = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 14, height: 14 }}>
+    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
   </svg>
 );
 
@@ -46,6 +37,7 @@ function formatDate(iso) {
 
 // ── Component ────────────────────────────────────────────────
 export default function Research() {
+  const navigate = useNavigate();
   const [papers, setPapers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -228,7 +220,6 @@ export default function Research() {
           margin-top: 16px;
         }
         .btn-read {
-          flex: 1;
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -241,23 +232,10 @@ export default function Research() {
           font-weight: 500;
           text-decoration: none;
           transition: background 0.2s;
+          width: 100%;
+          box-sizing: border-box;
         }
         .btn-read:hover { background: #E34850; }
-        .btn-download {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          padding: 10px 14px;
-          background: #F5F5F5;
-          color: #2C2C2C;
-          border-radius: 7px;
-          font-size: 14px;
-          font-weight: 500;
-          text-decoration: none;
-          transition: background 0.2s;
-        }
-        .btn-download:hover { background: #EAEAEA; }
 
         /* ── Empty / Loading states ── */
         .state-center {
@@ -384,7 +362,11 @@ export default function Research() {
         {!loading && !error && papers.length > 0 && (
           <div className="papers-grid">
             {papers.map((paper) => (
-              <div key={paper.id} className="paper-card">
+              <div
+                key={paper.id}
+                className="paper-card"
+                onClick={() => navigate(`/research/${paper.id}`, { state: { paper } })}
+              >
                 <div className="paper-icon-wrap">
                   <FileText style={{ width: 26, height: 26, color: '#FF5A5F' }} />
                 </div>
@@ -393,25 +375,15 @@ export default function Research() {
                 {paper.description && <p>{paper.description}</p>}
 
                 <div className="paper-actions">
-                  <a
-                    href={paper.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <Link
+                    to={`/research/${paper.id}`}
+                    state={{ paper }}
                     className="btn-read"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <ExternalLink style={{ width: 14, height: 14 }} />
+                    <BookOpen />
                     Read
-                  </a>
-                  <a
-                    href={paper.file_url}
-                    download={paper.file_name}
-                    className="btn-download"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Download style={{ width: 14, height: 14 }} />
-                    Download
-                  </a>
+                  </Link>
                 </div>
 
                 <div className="paper-meta">
