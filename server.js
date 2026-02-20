@@ -31,6 +31,9 @@ try {
 const submitHandler = require('./api/applications/submit.js');
 const listHandler = require('./api/applications/list.js');
 const getHandler = require('./api/applications/get.js');
+const researchUploadHandler = require('./api/research/upload.js');
+const researchListHandler = require('./api/research/list.js');
+const researchDeleteHandler = require('./api/research/delete.js');
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -88,6 +91,34 @@ app.get('/api/applications/get', async (req, res) => {
   }
 });
 
+// Research endpoints
+app.post('/api/research/upload', async (req, res) => {
+  try {
+    await researchUploadHandler(req, res);
+  } catch (error) {
+    console.error('Research upload handler error:', error);
+    res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
+  }
+});
+
+app.get('/api/research/list', async (req, res) => {
+  try {
+    await researchListHandler(req, res);
+  } catch (error) {
+    console.error('Research list handler error:', error);
+    res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
+  }
+});
+
+app.delete('/api/research/delete', async (req, res) => {
+  try {
+    await researchDeleteHandler(req, res);
+  } catch (error) {
+    console.error('Research delete handler error:', error);
+    res.status(500).json({ success: false, error: 'Internal server error', details: error.message });
+  }
+});
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({
@@ -107,10 +138,13 @@ app.listen(PORT, () => {
 🚀 Server running on: http://localhost:${PORT}
 
 📡 API Endpoints:
-   GET  /api/health                   - Health check
-   POST /api/applications/submit      - Submit application
-   GET  /api/applications/list        - List applications (admin)
-   GET  /api/applications/get?id=...  - Get application (admin)
+   GET    /api/health                   - Health check
+   POST   /api/applications/submit      - Submit application
+   GET    /api/applications/list        - List applications (admin)
+   GET    /api/applications/get?id=...  - Get application (admin)
+   POST   /api/research/upload          - Upload research PDF (admin)
+   GET    /api/research/list            - List research papers
+   DELETE /api/research/delete?id=...  - Delete research paper (admin)
 
 🔧 Environment:
    Supabase: ${process.env.SUPABASE_URL ? '✅ Configured' : '❌ Not configured'}

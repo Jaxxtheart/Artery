@@ -21,6 +21,9 @@ export default function Home() {
         .cta-button::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent); transition: left 0.5s; }
         .cta-button:hover::before { left: 100%; }
         .cta-button:hover { background: #1A1A1A; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15); }
+        .cta-secondary { display: inline-block; padding: 16px 40px; background: transparent; color: #2C2C2C; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 500; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); letter-spacing: 0.3px; border: 1.5px solid rgba(44,44,44,0.25); }
+        .cta-secondary:hover { border-color: #FF5A5F; color: #FF5A5F; transform: translateY(-2px); }
+        .cta-group { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
         .philosophy { padding: 140px 20px; background: #FFFFFF; position: relative; overflow: hidden; }
         .philosophy::before { content: ''; position: absolute; top: -50%; right: -10%; width: 500px; height: 500px; background: radial-gradient(circle, rgba(255, 90, 95, 0.03) 0%, transparent 70%); border-radius: 50%; animation: float 20s ease-in-out infinite; }
         @keyframes float { 0%, 100% { transform: translate(0, 0) rotate(0deg); } 33% { transform: translate(30px, -30px) rotate(120deg); } 66% { transform: translate(-20px, 20px) rotate(240deg); } }
@@ -90,7 +93,10 @@ export default function Home() {
         <div className="hero-text">
           <h1>Africa's innovation starts here</h1>
           <p>We believe the next generation of world-changing companies will be built in Africa. We back the founders brave enough to prove it.</p>
-          <Link to="/apply" className="cta-button">Start Your Journey</Link>
+          <div className="cta-group">
+            <Link to="/apply" className="cta-button">Start Your Journey</Link>
+            <Link to="/research" className="cta-secondary">Read Our Research</Link>
+          </div>
         </div>
 
         <div className="scroll-indicator"></div>
@@ -111,9 +117,15 @@ export default function Home() {
 
       <footer>
         <p>© 2026 Artery Capital. All rights reserved.</p>
-        <Link to="/admin" style={{color: '#4A4A4A', textDecoration: 'none', fontSize: '12px', marginTop: '12px', display: 'inline-block', opacity: 0.5, transition: 'opacity 0.3s'}}>
-          Admin
-        </Link>
+        <div style={{marginTop: '12px', display: 'flex', gap: '20px', justifyContent: 'center', alignItems: 'center'}}>
+          <Link to="/research" style={{color: '#6A6A6A', textDecoration: 'none', fontSize: '13px', transition: 'color 0.3s'}}
+            onMouseEnter={e => e.target.style.color='#FF5A5F'} onMouseLeave={e => e.target.style.color='#6A6A6A'}>
+            Research
+          </Link>
+          <Link to="/admin" style={{color: '#4A4A4A', textDecoration: 'none', fontSize: '12px', opacity: 0.5, transition: 'opacity 0.3s'}}>
+            Admin
+          </Link>
+        </div>
       </footer>
     </div>
   );

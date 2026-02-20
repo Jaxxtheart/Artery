@@ -107,3 +107,48 @@ COMMENT ON TABLE applications IS 'Stores all startup funding applications for Ar
 COMMENT ON COLUMN applications.status IS 'Application review status: pending → reviewing → discovery_call → deep_dive → approved/rejected';
 COMMENT ON COLUMN applications.ip_address IS 'Client IP address for fraud prevention and analytics';
 COMMENT ON COLUMN applications.user_agent IS 'Browser user agent for analytics and troubleshooting';
+
+-- ============================================================
+-- Research Papers Table
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS research_papers (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+
+  title TEXT NOT NULL,
+  description TEXT,
+  file_name TEXT NOT NULL,
+  file_url TEXT NOT NULL,
+  file_size INTEGER,
+  is_published BOOLEAN DEFAULT TRUE NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_research_papers_created_at ON research_papers(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_research_papers_is_published ON research_papers(is_published);
+
+ALTER TABLE research_papers ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Service role has full access to research_papers"
+  ON research_papers
+  FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+CREATE POLICY "Anyone can read published research_papers"
+  ON research_papers
+  FOR SELECT
+  TO anon, authenticated
+  USING (is_published = true);
+
+CREATE TRIGGER update_research_papers_updated_at
+  BEFORE UPDATE ON research_papers
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE research_papers IS 'Stores research PDF metadata uploaded by admins for the public research page';
+
+-- NOTE: You must also create a Supabase Storage bucket named "research-pdfs" with public access.
+-- In the Supabase Dashboard: Storage → New bucket → Name: research-pdfs → Public bucket: ON
