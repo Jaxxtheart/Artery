@@ -1,13 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  ReferenceLine
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, ReferenceLine
 } from 'recharts';
 
 const INITIAL_CAPITAL = 1441;
@@ -17,10 +11,10 @@ function CustomTooltip({ active, payload, label }) {
   const value = payload[0]?.value;
   const pnl = value - INITIAL_CAPITAL;
   return (
-    <div className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs">
-      <div className="text-gray-400 mb-1">{label}</div>
-      <div className="text-white font-semibold">${value?.toFixed(2)}</div>
-      <div className={pnl >= 0 ? 'text-green-400' : 'text-red-400'}>
+    <div style={{ background: '#fff', border: '1px solid #EBEBEA', borderRadius: 8, padding: '8px 12px', fontSize: 11, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
+      <div style={{ color: '#A0A0A0', marginBottom: 4 }}>{label}</div>
+      <div style={{ fontWeight: 600, color: '#1A1A1A' }}>${value?.toFixed(2)}</div>
+      <div style={{ color: pnl >= 0 ? '#16A34A' : '#DC2626' }}>
         {pnl >= 0 ? '+' : ''}${pnl?.toFixed(2)} ({((pnl / INITIAL_CAPITAL) * 100).toFixed(2)}%)
       </div>
     </div>
@@ -32,24 +26,22 @@ export default function LiveChart({ snapshots = [] }) {
 
   useEffect(() => {
     if (snapshots.length === 0) {
-      // Show placeholder data
       const now = new Date();
       const placeholder = Array.from({ length: 14 }, (_, i) => {
         const date = new Date(now);
         date.setDate(date.getDate() - (13 - i));
         return {
           date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          value: INITIAL_CAPITAL + (Math.random() - 0.3) * 100
+          value: INITIAL_CAPITAL + (Math.random() - 0.3) * 100,
         };
       });
-      // Last point is current value
       placeholder[placeholder.length - 1].value = INITIAL_CAPITAL;
       setChartData(placeholder);
     } else {
       const sorted = [...snapshots].sort((a, b) => new Date(a.snapshot_date) - new Date(b.snapshot_date));
       setChartData(sorted.map(s => ({
         date: new Date(s.snapshot_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        value: parseFloat(s.total_value)
+        value: parseFloat(s.total_value),
       })));
     }
   }, [snapshots]);
@@ -62,18 +54,22 @@ export default function LiveChart({ snapshots = [] }) {
   const minValue = Math.min(...chartData.map(d => d.value), INITIAL_CAPITAL) * 0.98;
   const maxValue = Math.max(...chartData.map(d => d.value), INITIAL_CAPITAL) * 1.02;
 
+  const lineColor = isPositive ? '#FF5A5F' : '#DC2626';
+
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-      <div className="flex items-start justify-between mb-5">
+    <div style={{ background: '#fff', border: '1px solid #EBEBEA', borderRadius: 12, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
-          <h2 className="text-sm text-gray-400 tracking-widest uppercase mb-1">Portfolio Performance</h2>
-          <div className="text-2xl font-bold text-white">${currentValue.toFixed(2)}</div>
-          <div className={`text-sm ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+          <h2 style={{ fontSize: 11, fontWeight: 600, color: '#A0A0A0', letterSpacing: '0.8px', textTransform: 'uppercase', margin: '0 0 6px' }}>
+            Portfolio Performance
+          </h2>
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#1A1A1A' }}>${currentValue.toFixed(2)}</div>
+          <div style={{ fontSize: 13, color: isPositive ? '#16A34A' : '#DC2626' }}>
             {isPositive ? '+' : ''}${pnl.toFixed(2)} ({isPositive ? '+' : ''}{pnlPct.toFixed(2)}%)
           </div>
         </div>
         {snapshots.length === 0 && (
-          <span className="text-xs text-gray-600 bg-gray-800 px-2 py-1 rounded">Preview</span>
+          <span style={{ fontSize: 10, color: '#A0A0A0', background: '#F5F5F4', padding: '3px 8px', borderRadius: 4 }}>Preview</span>
         )}
       </div>
 
@@ -81,21 +77,21 @@ export default function LiveChart({ snapshots = [] }) {
         <AreaChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
           <defs>
             <linearGradient id="portfolioGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={isPositive ? '#6366f1' : '#ef4444'} stopOpacity={0.3} />
-              <stop offset="95%" stopColor={isPositive ? '#6366f1' : '#ef4444'} stopOpacity={0} />
+              <stop offset="5%"  stopColor={lineColor} stopOpacity={0.15} />
+              <stop offset="95%" stopColor={lineColor} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="#F0F0EE" vertical={false} />
           <XAxis
             dataKey="date"
-            tick={{ fill: '#6b7280', fontSize: 10 }}
+            tick={{ fill: '#C0C0C0', fontSize: 10 }}
             axisLine={false}
             tickLine={false}
             interval="preserveStartEnd"
           />
           <YAxis
             domain={[minValue, maxValue]}
-            tick={{ fill: '#6b7280', fontSize: 10 }}
+            tick={{ fill: '#C0C0C0', fontSize: 10 }}
             axisLine={false}
             tickLine={false}
             tickFormatter={v => `$${v.toFixed(0)}`}
@@ -104,25 +100,25 @@ export default function LiveChart({ snapshots = [] }) {
           <Tooltip content={<CustomTooltip />} />
           <ReferenceLine
             y={INITIAL_CAPITAL}
-            stroke="#374151"
+            stroke="#EBEBEA"
             strokeDasharray="4 4"
-            label={{ value: 'Entry', fill: '#6b7280', fontSize: 10, position: 'left' }}
+            label={{ value: 'Entry', fill: '#C0C0C0', fontSize: 10, position: 'left' }}
           />
           <ReferenceLine
             y={2441}
-            stroke="#6366f1"
+            stroke="#FF5A5F"
             strokeDasharray="4 4"
-            strokeOpacity={0.4}
-            label={{ value: 'Target', fill: '#6366f1', fontSize: 10, position: 'left' }}
+            strokeOpacity={0.3}
+            label={{ value: 'Target', fill: '#FF5A5F', fontSize: 10, position: 'left' }}
           />
           <Area
             type="monotone"
             dataKey="value"
-            stroke={isPositive ? '#6366f1' : '#ef4444'}
+            stroke={lineColor}
             strokeWidth={2}
             fill="url(#portfolioGradient)"
             dot={false}
-            activeDot={{ r: 4, fill: isPositive ? '#6366f1' : '#ef4444' }}
+            activeDot={{ r: 4, fill: lineColor, stroke: '#fff', strokeWidth: 2 }}
           />
         </AreaChart>
       </ResponsiveContainer>

@@ -28,12 +28,6 @@ const Eye = ({ className }) => (
     <circle cx="12" cy="12" r="3"></circle>
   </svg>
 );
-const TrendingUp = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
-    <polyline points="16 7 22 7 22 13"></polyline>
-  </svg>
-);
 
 /* ── Shared Artery logo mark (SVG) ── */
 function ArteryLogo({ width = 260, textColor = '#2C2C2C', gradId = 'flowGradDash' }) {
@@ -127,28 +121,6 @@ export default function AdminDashboard() {
 
           {/* Right nav */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Link
-              to="/trading"
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 7,
-                padding: '8px 18px', background: '#2C2C2C', color: '#fff',
-                textDecoration: 'none', borderRadius: 6, fontSize: 13, fontWeight: 500,
-                letterSpacing: '0.2px', transition: 'background 0.2s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = '#1A1A1A'}
-              onMouseLeave={e => e.currentTarget.style.background = '#2C2C2C'}
-            >
-              <TrendingUp className={undefined} style={{ width: 14, height: 14 }} />
-              Artery Wealth Builder
-              <span style={{
-                display: 'inline-block', background: '#FF5A5F', color: '#fff',
-                fontSize: 9, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase',
-                padding: '2px 6px', borderRadius: 20, marginLeft: 2,
-              }}>Live</span>
-            </Link>
-
-            <div style={{ width: 1, height: 24, background: '#EBEBEA' }} />
-
             <button
               onClick={handleLogout}
               style={{
