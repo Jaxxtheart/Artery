@@ -1,243 +1,315 @@
 # Artery Capital
 
-A modern, comprehensive investment platform for African startups with AI-powered application scoring and valuation.
+**Africa's innovation starts here.** We back exceptional African founders building technology companies with $15,000 funding + strategic business advisory.
 
-## Features
+---
 
-- **Home Page**: Showcases Artery Capital's mission, services, and investment focus
-- **Application Portal**: Complete 5-step application form for startup funding
-- **AI-Powered Scoring**: Instant evaluation using Y Combinator, Silicon Valley, and Harambeans criteria
-- **Valuation Engine**: Automated current and projected (3-5 year) startup valuations
-- **Responsive Design**: Mobile-friendly and works across all devices
-- **Modern UI**: Built with React and styled with custom CSS
-- **Real-time Feedback**: Applicants receive instant scoring and next steps
-
-## Tech Stack
-
-### Frontend
-- **Framework**: React 18
-- **Build Tool**: Vite
-- **Routing**: React Router v6
-- **Styling**: Tailwind CSS + Custom CSS
-
-### Backend
-- **Runtime**: Node.js
-- **Framework**: Express
-- **File Uploads**: Multer
-- **Scoring Engine**: Custom JavaScript algorithm
-
-## Application Scoring System
-
-The platform features a sophisticated scoring system that evaluates startup applications across 7 key dimensions:
-
-### Evaluation Framework
-
-**Y Combinator Principles (53%)**
-- Founder Quality (20%) - Team credentials and commitment
-- Traction (18%) - Revenue, users, growth metrics
-- Product-Market Fit (15%) - Problem-solution alignment
-
-**Silicon Valley Criteria (27%)**
-- Market Opportunity (15%) - TAM, scalability, market dynamics
-- Innovation (12%) - Disruption potential and differentiation
-
-**Harambeans Principles (20%)**
-- African Impact (10%) - Local relevance and scale
-- Sustainability (10%) - Business model and long-term viability
-
-### Output
-
-Each application receives:
-- **Overall Score**: 0-100 with rating (Exceptional/Strong/Good/Moderate/Needs Development)
-- **Category Breakdown**: Individual scores for all 7 dimensions
-- **Current Valuation**: Stage and score-based valuation in USD
-- **3-Year Projection**: Conservative growth scenario
-- **5-Year Projection**: Full potential scenario
-- **Strengths & Concerns**: AI-generated analysis
-- **Next Steps**: Customized action items
-
-For detailed methodology, see [SCORING_SYSTEM.md](SCORING_SYSTEM.md)
-
-## Getting Started
-
-For detailed setup instructions, see [SETUP.md](SETUP.md)
+## 🚀 Quick Start
 
 ### Prerequisites
+- Node.js 18+ and npm
+- Supabase account (free tier works)
+- Resend account (for emails, optional for dev)
 
-- Node.js 16+ installed
-- npm package manager
+### 1. Clone and Install
 
-### Quick Start
-
-1. **Clone the repository:**
 ```bash
-git clone https://github.com/Jaxxtheart/Artery.git
+git clone <your-repo-url>
 cd Artery
-```
-
-2. **Install frontend dependencies:**
-```bash
 npm install
+cd api && npm install && cd ..
 ```
 
-3. **Install backend dependencies:**
-```bash
-cd backend
-npm install
-cd ..
-```
-
-4. **Configure environment variables:**
-```bash
-cp .env.example .env
-cp backend/.env.example backend/.env
-```
-
-5. **Start the backend (Terminal 1):**
-```bash
-cd backend
-npm start
-```
-
-6. **Start the frontend (Terminal 2):**
-```bash
-npm run dev
-```
-
-7. **Access the application:**
-- Frontend: `http://localhost:5173`
-- Backend API: `http://localhost:3001`
-
-### Test the Scoring System
+### 2. Configure Environment
 
 ```bash
-cd backend
-node test-scoring.js
+cp .env.local.example .env.local
 ```
 
-This runs test cases showing how the scoring system evaluates different startup profiles.
+Edit `.env.local` with your credentials:
+- **Supabase**: Get from [supabase.com](https://supabase.com) → Project Settings → API
+- **Resend**: Get from [resend.com](https://resend.com) → API Keys
+- **Admin Password**: Set your secure password
 
-## Available Scripts
+### 3. Set Up Database
 
-- `npm run dev` - Start the development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview the production build locally
+1. Create Supabase project
+2. Run SQL from `schema.sql` in Supabase SQL Editor
+3. Copy credentials to `.env.local`
 
-## Project Structure
+### 4. Run Development Server
 
-```
-Artery/
-├── src/                           # Frontend React application
-│   ├── pages/
-│   │   ├── Home.jsx              # Landing page
-│   │   └── Application.jsx        # Multi-step application form with scoring display
-│   ├── App.jsx                   # Router configuration
-│   ├── index.css                 # Global styles
-│   └── main.jsx                  # React entry point
-├── backend/                       # Backend API server
-│   ├── services/
-│   │   └── scoringEngine.js      # AI scoring algorithm (700+ lines)
-│   ├── uploads/                  # File upload storage
-│   │   └── pitch-decks/
-│   ├── server.js                 # Express API server
-│   ├── test-scoring.js           # Test script for scoring engine
-│   ├── package.json              # Backend dependencies
-│   └── README.md                 # Backend documentation
-├── public/
-│   └── logo.svg                  # Artery Capital logo
-├── index.html                    # HTML entry point
-├── package.json                  # Frontend dependencies
-├── vite.config.js               # Vite configuration
-├── .env.example                 # Frontend environment template
-├── README.md                     # This file
-├── SETUP.md                      # Detailed setup instructions
-└── SCORING_SYSTEM.md             # Complete scoring methodology (300+ lines)
-```
-
-## Deployment
-
-### Deploy to Vercel (Recommended)
-
-The application is optimized for Vercel with both frontend and serverless API functions.
-
-**Quick Deploy:**
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/Jaxxtheart/Artery)
-
-**Manual Deployment:**
-
-1. **Connect Repository**:
-   - Go to [vercel.com/new](https://vercel.com/new)
-   - Import your GitHub repository
-   - Framework: Vite (auto-detected)
-
-2. **Configure**:
-   - Build Command: `npm run build`
-   - Output Directory: `dist`
-   - Environment Variables: Leave `VITE_API_URL` empty (uses relative URLs)
-
-3. **Deploy**:
-   - Click "Deploy"
-   - App will be live at `https://your-app.vercel.app`
-
-**Vercel CLI:**
-
+**Option A - Run Both (Recommended):**
 ```bash
-# Install CLI
-npm install -g vercel
-
-# Deploy to production
-vercel --prod
+npm run dev:full
 ```
 
-**Features on Vercel**:
-- ✅ Automatic HTTPS
-- ✅ Global CDN
-- ✅ Serverless API functions
-- ✅ Continuous deployment from Git
-- ✅ Preview deployments for PRs
+**Option B - Run Separately:**
 
-For detailed deployment guide, see [DEPLOYMENT.md](DEPLOYMENT.md)
-
-### Local Production Build
-
+Terminal 1:
 ```bash
-# Build frontend
-npm run build
-
-# Preview production build
-npm run preview
-
-# Test with backend (separate terminal)
-cd backend && npm start
+npm run server    # Backend API on :3001
 ```
 
-## Customization
-
-### Updating Colors
-
-Colors are defined as CSS variables in `src/index.css`:
-
-```css
-:root {
-  --primary-color: #4F46E5;
-  --secondary-color: #7C3AED;
-  --text-color: #1F2937;
-  --bg-color: #F9FAFB;
-  --white: #FFFFFF;
-}
+Terminal 2:
+```bash
+npm run dev       # Frontend on :5173
 ```
 
-### Modifying Content
+### 5. Access the Application
 
-- **Home Page**: Edit `src/pages/Home.jsx`
-- **Application Form**: Edit `src/pages/Application.jsx`
-- **Navigation**: Edit `src/App.jsx`
+- **Website**: http://localhost:5173
+- **Admin**: http://localhost:5173/admin (password from `.env.local`)
+- **API Health**: http://localhost:3001/api/health
 
-## Contributing
+---
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+## 📁 Project Structure
 
-## License
+```
+artery-capital/
+├── src/              # Frontend (React + Vite)
+│   ├── pages/        # Page components
+│   └── App.jsx       # React Router setup
+├── api/              # Backend (Vercel Functions)
+│   ├── applications/ # Application endpoints
+│   └── scoringEngine.cjs # AI scoring algorithm
+├── lib/              # Shared libraries
+│   ├── supabase.js   # Database client
+│   └── email-service.js # Email sending
+├── server.js         # Local dev server
+└── vercel.json       # Vercel deployment config
+```
 
-Copyright © 2026 Artery Capital. All rights reserved.
+---
+
+## 🎯 Features
+
+### For Founders
+- ✅ 5-step application form with validation
+- ✅ AI-powered scoring (0-100)
+- ✅ Estimated valuation (current, 3yr, 5yr)
+- ✅ Category-by-category evaluation
+- ✅ Immediate feedback on strengths/concerns
+- ✅ Email confirmation
+- ✅ Print and download results
+
+### For Admins
+- ✅ Secure admin dashboard
+- ✅ View all applications
+- ✅ AI scoring insights
+- ✅ Detailed application analysis
+- ✅ Print and export functionality
+- ✅ Email notifications
+
+### Technical
+- ✅ Supabase PostgreSQL database
+- ✅ Resend email notifications
+- ✅ IP address tracking
+- ✅ File upload support
+- ✅ Responsive design
+- ✅ Vercel serverless deployment
+
+---
+
+## 🛠️ Tech Stack
+
+**Frontend:**
+- React 18
+- React Router 6
+- Vite
+- Tailwind CSS (utility-first styling)
+
+**Backend:**
+- Vercel Serverless Functions
+- Supabase (PostgreSQL)
+- Resend (Email)
+- Node.js + Express (local dev)
+
+**Deployment:**
+- Vercel (auto-deployment)
+- GitHub (version control)
+
+---
+
+## 📚 Documentation
+
+- **[DEVELOPMENT.md](./DEVELOPMENT.md)** - Complete development guide
+- **[PHASE4_IMPLEMENTATION.md](./PHASE4_IMPLEMENTATION.md)** - Backend integration details
+- **[ADMIN_SYSTEM.md](./ADMIN_SYSTEM.md)** - Admin system documentation
+- **[schema.sql](./schema.sql)** - Database schema
+
+---
+
+## 🚢 Deployment
+
+### Deploy to Vercel
+
+1. **Push to GitHub**
+2. **Import to Vercel**: [vercel.com](https://vercel.com/new)
+3. **Add Environment Variables** in Vercel Dashboard:
+   ```
+   SUPABASE_URL
+   SUPABASE_SERVICE_KEY
+   RESEND_API_KEY
+   ADMIN_EMAIL
+   FROM_EMAIL
+   ADMIN_PASSWORD
+   NEXT_PUBLIC_APP_URL
+   ```
+4. **Deploy**: Automatic on push
+
+See [PHASE4_IMPLEMENTATION.md](./PHASE4_IMPLEMENTATION.md) for detailed deployment instructions.
+
+---
+
+## 🔐 Environment Variables
+
+Required for production:
+
+| Variable | Description | Where to Get |
+|----------|-------------|--------------|
+| `SUPABASE_URL` | Supabase project URL | Supabase Dashboard → Settings → API |
+| `SUPABASE_SERVICE_KEY` | Service role key | Supabase Dashboard → Settings → API |
+| `RESEND_API_KEY` | Email API key | Resend Dashboard → API Keys |
+| `ADMIN_EMAIL` | Admin notification email | Your email |
+| `FROM_EMAIL` | Sender email address | Verified domain in Resend |
+| `ADMIN_PASSWORD` | Admin dashboard password | Choose secure password |
+| `NEXT_PUBLIC_APP_URL` | Production URL | Your domain |
+
+---
+
+## 🧪 Testing
+
+### Test Application Submission
+1. Visit http://localhost:5173
+2. Click "Apply for Funding"
+3. Complete 5-step form
+4. Submit and verify success page
+5. Check Supabase for saved application
+6. Check email for confirmation
+
+### Test Admin Dashboard
+1. Visit http://localhost:5173/admin
+2. Login with `ADMIN_PASSWORD`
+3. Verify applications list
+4. Click application for details
+5. Test print/download
+
+---
+
+## 🐛 Troubleshooting
+
+### "Unable to connect to server"
+**Fix**: Start backend server with `npm run server`
+
+### "Supabase is not configured"
+**Fix**: Add Supabase credentials to `.env.local` and restart server
+
+### "Email service not configured"
+**Note**: Application works without email. Add `RESEND_API_KEY` to enable emails.
+
+### Port already in use
+```bash
+# Kill process on port 3001
+lsof -ti:3001 | xargs kill -9
+
+# Or set custom port
+PORT=3002 npm run server
+```
+
+See [DEVELOPMENT.md](./DEVELOPMENT.md) for more troubleshooting.
+
+---
+
+## 📊 Database Schema
+
+The `applications` table stores:
+- Founder information (name, email, phone, LinkedIn)
+- Company details (name, country, industry, stage)
+- Business plan (problem, solution, impact)
+- Traction metrics (revenue, users, growth)
+- Funding requirements
+- Status tracking
+- Metadata (IP, user agent, timestamps)
+
+Run `schema.sql` in Supabase to create all tables, indexes, and policies.
+
+---
+
+## 🎨 Design Philosophy
+
+- **Minimalist**: Following Steve Jobs/Jony Ive principles
+- **Accessible**: HCI-compliant (contrast, readability)
+- **Professional**: Clean, modern aesthetic
+- **African-focused**: Mission-driven design
+- **Mobile-first**: Responsive on all devices
+
+---
+
+## 🔒 Security
+
+- Row Level Security (RLS) on Supabase
+- Environment variable protection
+- IP address tracking
+- Session-based admin auth
+- CORS configuration
+- Input validation
+- File upload restrictions
+
+**⚠️ Production Security:**
+- Change default admin password
+- Use strong database passwords
+- Enable Supabase RLS policies
+- Set up rate limiting
+- Monitor logs regularly
+
+---
+
+## 📈 Roadmap
+
+### Phase 5: Enhancements
+- [ ] Multi-admin support
+- [ ] 2FA authentication
+- [ ] Email sequences for applicants
+- [ ] Calendar integration
+- [ ] Advanced analytics dashboard
+- [ ] Applicant status portal
+- [ ] Payment integration
+- [ ] Portfolio showcase page
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
+
+---
+
+## 📞 Support
+
+- **Email**: invest@arterycapital.com
+- **Issues**: GitHub Issues
+- **Documentation**: See documentation files
+
+---
+
+## 📄 License
+
+© 2026 Artery Capital. All rights reserved.
+
+---
+
+## 🙏 Acknowledgments
+
+- Built with Claude AI assistance
+- Inspired by African innovation
+- Powered by Vercel, Supabase, and Resend
+
+---
+
+**Africa's innovation starts here.** 🚀
