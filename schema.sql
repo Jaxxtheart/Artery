@@ -64,6 +64,7 @@ CREATE INDEX IF NOT EXISTS idx_applications_company_name ON applications(company
 ALTER TABLE applications ENABLE ROW LEVEL SECURITY;
 
 -- Create policy for service role (full access)
+DROP POLICY IF EXISTS "Service role has full access" ON applications;
 CREATE POLICY "Service role has full access"
   ON applications
   FOR ALL
@@ -72,6 +73,7 @@ CREATE POLICY "Service role has full access"
   WITH CHECK (true);
 
 -- Create policy for authenticated users (read only for now)
+DROP POLICY IF EXISTS "Authenticated users can read all applications" ON applications;
 CREATE POLICY "Authenticated users can read all applications"
   ON applications
   FOR SELECT
@@ -87,6 +89,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS update_applications_updated_at ON applications;
 CREATE TRIGGER update_applications_updated_at
   BEFORE UPDATE ON applications
   FOR EACH ROW
@@ -240,6 +243,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_strategy_performance ON trade_history;
 CREATE TRIGGER trigger_update_strategy_performance
   AFTER INSERT ON trade_history
   FOR EACH ROW
