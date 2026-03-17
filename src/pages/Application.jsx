@@ -63,6 +63,22 @@ const DollarSign = ({ className }) => (
   </svg>
 );
 
+const Printer = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <polyline points="6 9 6 2 18 2 18 9"></polyline>
+    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+    <rect x="6" y="14" width="12" height="8"></rect>
+  </svg>
+);
+
+const Download = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+    <polyline points="7 10 12 15 17 10"></polyline>
+    <line x1="12" y1="15" x2="12" y2="3"></line>
+  </svg>
+);
+
 // Helper function to normalize data for API
 const normalizeData = (data) => {
   // Map stage values from UI to API format
@@ -204,19 +220,47 @@ export default function Application() {
     }
   };
 
-  if (done && scoring) {
-    const ratingColors = {
-      'Exceptional': 'bg-green-100 text-green-800 border-green-300',
-      'Strong': 'bg-blue-100 text-blue-800 border-blue-300',
-      'Good': 'bg-yellow-100 text-yellow-800 border-yellow-300',
-      'Moderate': 'bg-orange-100 text-orange-800 border-orange-300',
-      'Needs Development': 'bg-red-100 text-red-800 border-red-300'
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleDownload = () => {
+    const reportData = {
+      applicant: {
+        name: data.founderName,
+        email: data.email,
+        company: data.companyName
+      },
+      submittedAt: new Date().toISOString(),
+      scoring: {
+        overallScore: scoring.overallScore,
+        rating: scoring.rating,
+        recommendation: scoring.recommendation,
+        categoryScores: scoring.categoryScores,
+        weights: scoring.weights,
+        strengths: scoring.strengths,
+        concerns: scoring.concerns,
+        nextSteps: scoring.nextSteps
+      },
+      valuation: {
+        current: scoring.valuation.current,
+        projected3Year: scoring.valuation.projected3Year,
+        projected5Year: scoring.valuation.projected5Year
+      }
     };
 
-    const scoreColor = scoring.overallScore >= 75 ? 'text-green-600' :
-                       scoring.overallScore >= 65 ? 'text-blue-600' :
-                       scoring.overallScore >= 50 ? 'text-yellow-600' : 'text-orange-600';
+    const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `artery-capital-results-${data.companyName.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
+  if (done) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 py-8 px-4">
         <div className="max-w-4xl mx-auto">
@@ -250,124 +294,43 @@ export default function Application() {
               </div>
             </div>
             <h1 className="text-4xl font-semibold mb-3 text-gray-900">Application Submitted!</h1>
-            <p className="text-lg text-gray-600">Your application has been evaluated using our AI-powered scoring system</p>
+            <p className="text-lg text-gray-600">Thank you for applying to Artery Capital</p>
           </div>
 
-          {/* Overall Score */}
+          {/* Confirmation Message */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 mb-6">
-            <div className="text-center mb-6">
-              <div className={`text-7xl font-bold mb-3 ${scoreColor}`}>{scoring.overallScore}</div>
-              <div className="text-2xl text-gray-500 mb-4">out of 100</div>
-              <span className={`inline-block px-6 py-2 rounded-full border-2 font-semibold ${ratingColors[scoring.rating]}`}>
-                {scoring.rating}
-              </span>
-            </div>
-            <div className="border-t border-gray-200 pt-6 mt-6">
-              <p className="text-lg font-medium text-gray-900 mb-2">Recommendation</p>
-              <p className="text-gray-700">{scoring.recommendation}</p>
-            </div>
-          </div>
-
-          {/* Valuation */}
-          <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-lg shadow-sm border border-red-200 p-8 mb-6">
-            <h2 className="text-2xl font-semibold mb-6 text-gray-900">Estimated Valuation</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white rounded-lg p-6 border border-gray-200">
-                <p className="text-sm font-medium text-gray-600 mb-2">Current Valuation</p>
-                <p className="text-3xl font-bold text-gray-900">${(scoring.valuation.current.amount / 1000).toFixed(0)}K</p>
-                <p className="text-xs text-gray-500 mt-2">Based on current metrics</p>
-              </div>
-              <div className="bg-white rounded-lg p-6 border border-gray-200">
-                <p className="text-sm font-medium text-gray-600 mb-2">3-Year Projection</p>
-                <p className="text-3xl font-bold text-blue-600">${(scoring.valuation.projected3Year.amount / 1000000).toFixed(1)}M</p>
-                <p className="text-xs text-gray-500 mt-2">{scoring.valuation.projected3Year.assumptions.growthMultiplier}x growth multiplier</p>
-              </div>
-              <div className="bg-white rounded-lg p-6 border border-gray-200">
-                <p className="text-sm font-medium text-gray-600 mb-2">5-Year Projection</p>
-                <p className="text-3xl font-bold text-green-600">${(scoring.valuation.projected5Year.amount / 1000000).toFixed(1)}M</p>
-                <p className="text-xs text-gray-500 mt-2">{scoring.valuation.projected5Year.assumptions.growthMultiplier}x growth multiplier</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Category Scores */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 mb-6">
-            <h2 className="text-2xl font-semibold mb-6 text-gray-900">Evaluation Breakdown</h2>
-            <div className="space-y-4">
-              {Object.entries(scoring.categoryScores).map(([category, score]) => {
-                const categoryNames = {
-                  founderQuality: 'Founder Quality',
-                  traction: 'Traction & Metrics',
-                  productMarketFit: 'Product-Market Fit',
-                  marketOpportunity: 'Market Opportunity',
-                  innovation: 'Innovation',
-                  africanImpact: 'African Impact',
-                  sustainability: 'Sustainability'
-                };
-                const weight = scoring.weights[category];
-                const barColor = score >= 75 ? 'bg-green-500' :
-                               score >= 60 ? 'bg-blue-500' :
-                               score >= 40 ? 'bg-yellow-500' : 'bg-red-500';
-                return (
-                  <div key={category}>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-medium text-gray-900">{categoryNames[category]}</span>
-                      <span className="text-sm text-gray-600">{score}/100 ({weight}% weight)</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-3">
-                      <div className={`${barColor} h-3 rounded-full transition-all`} style={{width: `${score}%`}}></div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Strengths & Concerns */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="font-semibold text-lg mb-4 text-gray-900">Key Strengths</h3>
-              <ul className="space-y-2">
-                {scoring.strengths.map((strength, i) => (
-                  <li key={i} className="flex gap-2">
-                    <span className="text-green-600 flex-shrink-0">✓</span>
-                    <span className="text-sm text-gray-700">{strength}</span>
+            <div className="prose max-w-none">
+              <p className="text-gray-700 mb-4">
+                Your application has been successfully received and is currently under review by our team.
+              </p>
+              <p className="text-gray-700 mb-4">
+                We carefully evaluate each application using our comprehensive scoring system that combines
+                Y Combinator principles, Silicon Valley criteria, and Harambeans evaluation methods.
+              </p>
+              <div className="bg-gray-50 rounded-lg p-6 my-6">
+                <h3 className="font-semibold text-lg mb-3 text-gray-900">What Happens Next?</h3>
+                <ul className="space-y-3">
+                  <li className="flex gap-3">
+                    <span className="text-red-600 flex-shrink-0">1.</span>
+                    <span className="text-gray-700">Our investment team will review your application within 5-7 business days</span>
                   </li>
-                ))}
-              </ul>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="font-semibold text-lg mb-4 text-gray-900">Areas for Improvement</h3>
-              <ul className="space-y-2">
-                {scoring.concerns.map((concern, i) => (
-                  <li key={i} className="flex gap-2">
-                    <span className="text-orange-600 flex-shrink-0">•</span>
-                    <span className="text-sm text-gray-700">{concern}</span>
+                  <li className="flex gap-3">
+                    <span className="text-red-600 flex-shrink-0">2.</span>
+                    <span className="text-gray-700">Qualified applicants will be invited for a video interview</span>
                   </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          {/* Next Steps */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 mb-6">
-            <h3 className="font-semibold text-lg mb-4 text-gray-900">Next Steps</h3>
-            {scoring.nextSteps.map((step, i) => (
-              <div key={i} className="flex gap-3 mb-4 last:mb-0">
-                <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                  <span className="text-red-600 font-semibold text-sm">{i + 1}</span>
-                </div>
-                <div>
-                  <p className="text-gray-700">{step}</p>
-                </div>
+                  <li className="flex gap-3">
+                    <span className="text-red-600 flex-shrink-0">3.</span>
+                    <span className="text-gray-700">Selected startups will receive funding and join our accelerator program</span>
+                  </li>
+                </ul>
               </div>
-            ))}
+              <p className="text-gray-700">
+                We'll be in touch at <strong>{data.email}</strong> with updates on your application status.
+              </p>
+            </div>
           </div>
 
           <div className="text-center">
-            <p className="text-gray-600 mb-6">
-              We'll be in touch at <strong>{data.email}</strong> with next steps
-            </p>
             <Link to="/" className="inline-block px-8 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 font-medium transition">
               Return to Home
             </Link>

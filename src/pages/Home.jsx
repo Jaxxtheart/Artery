@@ -90,7 +90,7 @@ export default function Home() {
         </div>
 
         <div className="hero-text">
-          <h1>Africa's innovation starts here</h1>
+          <h1>Build. Scale. Win.</h1>
           <p>We believe the next generation of world-changing companies will be built in Africa. We back the founders brave enough to prove it.</p>
           <Link to="/apply" className="cta-button">Start Your Journey</Link>
         </div>
@@ -106,8 +106,8 @@ export default function Home() {
       </section>
 
       <section className="contact" id="contact">
-        <h2>Partner with Africa's Next Wave</h2>
-        <p>Join us in backing the founders and innovations shaping Africa's future</p>
+        <h2>Partner with Artery Capital</h2>
+        <p>Join us in backing Africa's most promising founders. Co-invest in our fund and be part of the next generation of innovation.</p>
         <a href="mailto:invest@arterycapital.com" className="contact-email">invest@arterycapital.com</a>
       </section>
 
