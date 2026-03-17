@@ -5,6 +5,9 @@
 backend/
 # Note: api/ folder is NOT ignored - it contains serverless functions
 
+# Local data storage (filesystem-based storage for development)
+data/
+
 # Development files
 node_modules/
 .git/
@@ -18,6 +21,8 @@ SETUP.md
 SCORING_SYSTEM.md
 BUGFIXES.md
 DEPLOYMENT.md
+DEPLOYMENT_TROUBLESHOOTING.md
+ADMIN_SYSTEM.md
 
 # Test files
 test-*.js
