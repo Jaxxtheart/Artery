@@ -114,7 +114,7 @@ export default function Trading() {
             </Link>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-base font-bold tracking-tight">Quantum Alpha</span>
+                <span className="text-base font-bold tracking-tight">Artery Wealth Builder</span>
                 <span className="text-xs text-indigo-400 bg-indigo-500/20 px-2 py-0.5 rounded-full">Live</span>
               </div>
               <div className="text-xs text-gray-600">Artery Capital Algorithmic Trading System</div>

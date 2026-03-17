@@ -21,6 +21,10 @@ export default function Home() {
         .cta-button::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent); transition: left 0.5s; }
         .cta-button:hover::before { left: 100%; }
         .cta-button:hover { background: #1A1A1A; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15); }
+        .cta-group { display: flex; gap: 16px; align-items: center; justify-content: center; flex-wrap: wrap; }
+        .cta-button-secondary { display: inline-flex; align-items: center; gap: 8px; padding: 14px 32px; background: transparent; color: #2C2C2C; text-decoration: none; border-radius: 6px; font-size: 15px; font-weight: 500; border: 1.5px solid rgba(44,44,44,0.25); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); letter-spacing: 0.3px; }
+        .cta-button-secondary:hover { background: #2C2C2C; color: #fff; border-color: #2C2C2C; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.10); }
+        .cta-badge { display: inline-block; background: linear-gradient(135deg, #FF5A5F15, #FF5A5F08); border: 1px solid rgba(255,90,95,0.25); color: #FF5A5F; font-size: 10px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; padding: 3px 8px; border-radius: 20px; vertical-align: middle; margin-left: 6px; }
         .philosophy { padding: 140px 20px; background: #FFFFFF; position: relative; overflow: hidden; }
         .philosophy::before { content: ''; position: absolute; top: -50%; right: -10%; width: 500px; height: 500px; background: radial-gradient(circle, rgba(255, 90, 95, 0.03) 0%, transparent 70%); border-radius: 50%; animation: float 20s ease-in-out infinite; }
         @keyframes float { 0%, 100% { transform: translate(0, 0) rotate(0deg); } 33% { transform: translate(30px, -30px) rotate(120deg); } 66% { transform: translate(-20px, 20px) rotate(240deg); } }
@@ -90,7 +94,14 @@ export default function Home() {
         <div className="hero-text">
           <h1>Africa's innovation starts here</h1>
           <p>We believe the next generation of world-changing companies will be built in Africa. We back the founders brave enough to prove it.</p>
-          <Link to="/apply" className="cta-button">Start Your Journey</Link>
+          <div className="cta-group">
+            <Link to="/apply" className="cta-button">Start Your Journey</Link>
+            <Link to="/trading" className="cta-button-secondary">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+              Artery Wealth Builder
+              <span className="cta-badge">Live</span>
+            </Link>
+          </div>
         </div>
 
         <div className="scroll-indicator"></div>
