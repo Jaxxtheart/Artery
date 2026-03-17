@@ -1,5 +1,9 @@
 # Admin System Documentation
 
+## ⚠️ CRITICAL: READ FIRST
+
+**IMPORTANT**: See [DO_NOT_DELETE.md](./DO_NOT_DELETE.md) for complete list of protected features.
+
 ## ⚠️ CRITICAL: NEVER REMOVE THE ADMIN SYSTEM
 
 The admin system is a CORE FEATURE of Artery Capital and must **NEVER** be removed, disabled, or excluded from any deployment. This system is essential for:
