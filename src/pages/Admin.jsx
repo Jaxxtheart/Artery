@@ -8,123 +8,110 @@ const Lock = ({ className }) => (
   </svg>
 );
 
-const Eye = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-    <circle cx="12" cy="12" r="3"></circle>
-  </svg>
-);
-
-const EyeOff = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-    <line x1="1" y1="1" x2="23" y2="23"></line>
-  </svg>
-);
-
 export default function Admin() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [authError, setAuthError] = useState('');
-  const [applications, setApplications] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
-    e.preventDefault();
-    if (password === 'artery2024') {
-      setIsAuthenticated(true);
-      setAuthError('');
-      fetchApplications();
-    } else {
-      setAuthError('Invalid password');
+  useEffect(() => {
+    // Check if already authenticated
+    const isAuthenticated = sessionStorage.getItem('adminAuth');
+    if (isAuthenticated) {
+      navigate('/admin/dashboard');
     }
-  };
+  }, [navigate]);
 
-  const fetchApplications = async () => {
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
     setLoading(true);
+
     try {
-      const response = await fetch('/api/applications');
-      if (!response.ok) throw new Error('Failed to fetch applications');
-      const data = await response.json();
-      setApplications(data);
+      const adminPassword = 'admin123';
+
+      if (password === adminPassword) {
+        sessionStorage.setItem('adminAuth', password);
+        navigate('/admin/dashboard');
+      } else {
+        setError('Invalid password');
+      }
     } catch (err) {
-      setError(err.message);
+      setError('Login failed');
     } finally {
       setLoading(false);
     }
   };
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 w-full max-w-md">
-          <div className="flex items-center gap-3 mb-8">
-            <Lock className="w-6 h-6 text-blue-400" />
-            <h1 className="text-xl font-semibold text-white">Admin Access</h1>
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 py-12 px-4">
+      <div className="max-w-md mx-auto">
+        <Link to="/" className="inline-block mb-8">
+          <svg viewBox="0 0 500 160" xmlns="http://www.w3.org/2000/svg" width="250">
+            <defs>
+              <linearGradient id="flowGradAdmin" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style={{stopColor:'#FF5A5F',stopOpacity:1}} />
+                <stop offset="100%" style={{stopColor:'#E34850',stopOpacity:1}} />
+              </linearGradient>
+            </defs>
+            <circle cx="85" cy="80" r="55" fill="none" stroke="#FF5A5F" strokeWidth="2" opacity="0.3"/>
+            <g transform="translate(40, 45)">
+              <path d="M 20 55 C 20 40, 25 25, 35 15 C 40 8, 45 8, 50 15 C 55 22, 57 30, 55 40 L 50 52 M 30 52 C 32 35, 38 28, 45 28 C 52 28, 58 35, 60 52 M 30 52 C 30 58, 32 62, 35 65 C 40 70, 50 70, 55 65 C 58 62, 60 58, 60 52"
+                    stroke="url(#flowGradAdmin)" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M 35 15 Q 25 12, 18 18" stroke="#FF5A5F" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.5"/>
+              <path d="M 50 15 Q 60 12, 67 18" stroke="#FF5A5F" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.5"/>
+            </g>
+            <text x="160" y="85" fontFamily="'Helvetica Neue', 'Arial', sans-serif" fontSize="42" fontWeight="500" fill="#FFFFFF" letterSpacing="1">
+              Artery Capital
+            </text>
+            <path d="M 160 95 L 440 95" stroke="#FF5A5F" strokeWidth="1.5" opacity="0.3"/>
+          </svg>
+        </Link>
+
+        <div className="bg-white rounded-lg shadow-lg p-8">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
+              <Lock className="w-8 h-8 text-red-600" />
+            </div>
+            <h1 className="text-3xl font-semibold text-gray-900 mb-2">Admin Login</h1>
+            <p className="text-gray-600">Access the application dashboard</p>
           </div>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="relative">
+
+          <form onSubmit={handleLogin}>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Password
+              </label>
               <input
-                type={showPassword ? 'text' : 'password'}
+                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 pr-10"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                placeholder="Enter admin password"
+                required
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-200"
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
             </div>
-            {authError && <p className="text-red-400 text-sm">{authError}</p>}
+
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-600">{error}</p>
+              </div>
+            )}
+
             <button
               type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition-colors"
+              disabled={loading}
+              className="w-full bg-red-500 text-white py-3 rounded-lg font-medium hover:bg-red-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Sign In
+              {loading ? 'Logging in...' : 'Login'}
             </button>
           </form>
-        </div>
-      </div>
-    );
-  }
 
-  return (
-    <div className="min-h-screen bg-gray-950 p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-bold text-white">Applications</h1>
-          <Link to="/" className="text-gray-400 hover:text-white text-sm transition-colors">
-            Back to site
-          </Link>
-        </div>
-
-        {loading && <p className="text-gray-400">Loading...</p>}
-        {error && <p className="text-red-400">{error}</p>}
-
-        {!loading && !error && applications.length === 0 && (
-          <p className="text-gray-500">No applications yet.</p>
-        )}
-
-        <div className="space-y-4">
-          {applications.map((app) => (
-            <div key={app.id} className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="text-white font-semibold">{app.name}</h2>
-                  <p className="text-gray-400 text-sm">{app.email}</p>
-                </div>
-                <span className="text-gray-500 text-xs">{new Date(app.created_at).toLocaleDateString()}</span>
-              </div>
-              {app.message && <p className="text-gray-300 text-sm mt-3">{app.message}</p>}
-            </div>
-          ))}
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600">
+              For demo purposes, the password is: <code className="bg-gray-100 px-2 py-1 rounded">admin123</code>
+            </p>
+          </div>
         </div>
       </div>
     </div>
