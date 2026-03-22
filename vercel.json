@@ -12,7 +12,7 @@
   "crons": [
     {
       "path": "/api/cron/daily-trade",
-      "schedule": "0 22 * * *"
+      "schedule": "0 * * * *"
     }
   ],
   "rewrites": [

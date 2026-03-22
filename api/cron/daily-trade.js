@@ -1,6 +1,7 @@
 /**
  * GET /api/cron/daily-trade
- * Automated daily trading execution - triggered by Vercel Cron at 22:00 UTC
+ * Automated trading execution - triggered by Vercel Cron every hour (0 * * * *)
+ * Daily report email is only sent at 22:00 UTC
  * Also manually triggerable with proper authorization
  */
 
@@ -194,19 +195,22 @@ module.exports = async function handler(req, res) {
       }, { onConflict: 'snapshot_date' });
     }
 
-    // 7. Send daily report email
-    try {
-      const { sendDailyTradingReport } = require('../../lib/trading-email-templates');
-      await sendDailyTradingReport({
-        portfolio: { totalValue, cashBalance },
-        signals,
-        executedTrades: tradesExecuted,
-        closedPositions: closedToday,
-        log: executionLog
-      });
-      log('Daily report email sent');
-    } catch (emailErr) {
-      log(`Email error: ${emailErr.message}`);
+    // 7. Send daily report email (once per day at 22:00 UTC)
+    const currentHour = new Date().getUTCHours();
+    if (currentHour === 22) {
+      try {
+        const { sendDailyTradingReport } = require('../../lib/trading-email-templates');
+        await sendDailyTradingReport({
+          portfolio: { totalValue, cashBalance },
+          signals,
+          executedTrades: tradesExecuted,
+          closedPositions: closedToday,
+          log: executionLog
+        });
+        log('Daily report email sent');
+      } catch (emailErr) {
+        log(`Email error: ${emailErr.message}`);
+      }
     }
 
     return res.status(200).json({
