@@ -16,6 +16,7 @@ module.exports = async function handler(req, res) {
     let openPositions = [];
     let recentTrades = [];
     let strategyPerformance = [];
+    let allSnapshots = [];
     let latestSnapshot = null;
 
     if (supabase) {
@@ -29,7 +30,8 @@ module.exports = async function handler(req, res) {
       openPositions = posRes.data || [];
       recentTrades = tradeRes.data || [];
       strategyPerformance = stratRes.data || [];
-      latestSnapshot = (snapRes.data || [])[0] || null;
+      allSnapshots = snapRes.data || [];
+      latestSnapshot = allSnapshots[0] || null;
     }
 
     // Try to get live portfolio value
@@ -79,7 +81,7 @@ module.exports = async function handler(req, res) {
       openPositions,
       recentTrades,
       strategyPerformance,
-      snapshots: latestSnapshot,
+      snapshots: allSnapshots,
       riskMetrics,
       timestamp: new Date().toISOString()
     });

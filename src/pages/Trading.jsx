@@ -209,7 +209,7 @@ export default function Trading() {
           {/* Row 2: Chart + Strategy Controls */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
-              <LiveChart snapshots={status?.snapshots ? [status.snapshots] : []} />
+              <LiveChart snapshots={status?.snapshots || []} />
             </div>
             <div>
               <StrategyControls riskMetrics={status?.riskMetrics} onRunCron={() => fetchStatus()} />
@@ -219,7 +219,7 @@ export default function Trading() {
           {/* Row 3: Signals + Risk */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <SignalPanel signals={signals} onRefresh={fetchSignals} onExecute={handleExecuteTrade} isRefreshing={isRefreshingSignals} />
-            <RiskMetrics riskMetrics={status?.riskMetrics} snapshots={[]} />
+            <RiskMetrics riskMetrics={status?.riskMetrics} snapshots={status?.snapshots || []} />
           </div>
 
           {/* Row 4: Open Positions */}
