@@ -102,6 +102,21 @@ module.exports = async function handler(req, res) {
     // Refresh open positions count after closures
     const remainingPositions = openPositions.length - closedToday;
 
+    // 3a. Build cooldown set — skip re-entry on symbols closed in the last 4 hours
+    const COOLDOWN_HOURS = 4;
+    const cooldownSymbols = new Set();
+    if (supabase) {
+      const cutoff = new Date(Date.now() - COOLDOWN_HOURS * 3600000).toISOString();
+      const { data: recentlyClosed } = await supabase
+        .from('trade_history')
+        .select('symbol')
+        .gte('exit_time', cutoff);
+      (recentlyClosed || []).forEach(t => cooldownSymbols.add(t.symbol));
+      if (cooldownSymbols.size > 0) {
+        log(`Cooldown (${COOLDOWN_HOURS}h): skipping re-entry on ${[...cooldownSymbols].join(', ')}`);
+      }
+    }
+
     // 3. Check risk limits
     const riskCheck = checkRiskLimits({
       totalValue,
@@ -133,7 +148,7 @@ module.exports = async function handler(req, res) {
     const tradesExecuted = [];
     if (riskCheck.allowed) {
       const buySignals = signals
-        .filter(s => s.signal === 'BUY' && s.confidence >= MIN_CONFIDENCE)
+        .filter(s => s.signal === 'BUY' && s.confidence >= MIN_CONFIDENCE && !cooldownSymbols.has(s.symbol))
         .slice(0, 3);
 
       for (const signal of buySignals) {
