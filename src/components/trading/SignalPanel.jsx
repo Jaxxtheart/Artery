@@ -30,8 +30,12 @@ function ConfidenceBar({ value }) {
 
 export default function SignalPanel({ signals = [], onRefresh, onExecute, isRefreshing }) {
   const fmt = (v) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(v);
-  const actionable = signals.filter(s => s.signal !== 'HOLD');
-  const holds = signals.filter(s => s.signal === 'HOLD');
+  const errorSignals = signals.filter(s => s.strategy === 'ERROR');
+  const hasApiError = errorSignals.length > 0 && errorSignals.length === signals.length;
+  const apiErrorMsg = hasApiError ? errorSignals[0]?.reason : null;
+  const validSignals = hasApiError ? [] : signals;
+  const actionable = validSignals.filter(s => s.signal !== 'HOLD');
+  const holds = validSignals.filter(s => s.signal === 'HOLD');
 
   return (
     <div style={{ background: '#fff', border: '1px solid #EBEBEA', borderRadius: 12, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
@@ -56,13 +60,22 @@ export default function SignalPanel({ signals = [], onRefresh, onExecute, isRefr
         </button>
       </div>
 
-      {signals.length === 0 ? (
+      {hasApiError ? (
+        <div style={{ background: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: 8, padding: '14px 16px' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#92400E', marginBottom: 4 }}>Coinbase API not connected</div>
+          <div style={{ fontSize: 11, color: '#92400E', lineHeight: 1.5 }}>
+            {apiErrorMsg?.includes('401')
+              ? 'Invalid API credentials. Add COINBASE_API_KEY and COINBASE_API_SECRET to your Vercel environment variables.'
+              : apiErrorMsg}
+          </div>
+        </div>
+      ) : validSignals.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: '#C0C0C0', fontSize: 13 }}>
           Click refresh to generate signals
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {signals.map((signal, idx) => (
+          {validSignals.map((signal, idx) => (
             <div key={`${signal.symbol}-${signal.strategy}-${idx}`} style={{
               border: `1px solid ${signal.signal === 'BUY' ? 'rgba(22,163,74,0.15)' : signal.signal === 'SELL' ? 'rgba(220,38,38,0.15)' : '#EBEBEA'}`,
               background: signal.signal === 'BUY' ? 'rgba(22,163,74,0.03)' : signal.signal === 'SELL' ? 'rgba(220,38,38,0.03)' : '#FAFAF9',
