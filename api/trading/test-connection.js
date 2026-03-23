@@ -18,11 +18,11 @@ module.exports = async function handler(req, res) {
       COINBASE_API_KEY_set:    apiKey.length > 0,
       COINBASE_API_SECRET_set: apiSecret.length > 0,
       key_format:  apiKey.includes('/')          ? 'CDP (organizations/…/apiKeys/…)' : apiKey.length > 0 ? 'Legacy or unknown' : 'NOT SET',
-      pem_header:  apiSecret.includes('BEGIN EC PRIVATE KEY') ? 'EC (ES256)' :
-                   apiSecret.includes('BEGIN PRIVATE KEY')    ? 'Ed25519 (EdDSA)' :
-                   apiSecret.length > 0                       ? 'Unknown / malformed PEM' : 'NOT SET',
-      pem_has_real_newlines:    apiSecret.includes('\n'),
-      pem_has_escaped_newlines: apiSecret.includes('\\n'),
+      secret_format: apiSecret.includes('BEGIN EC PRIVATE KEY') ? 'PEM EC (ES256)' :
+                     apiSecret.includes('BEGIN PRIVATE KEY')    ? 'PEM Ed25519 (EdDSA)' :
+                     apiSecret.length > 0 && !apiSecret.includes(' ') ? 'Raw base64 Ed25519 (CDP JSON)' :
+                     apiSecret.length > 0                       ? 'Unknown / malformed' : 'NOT SET',
+      secret_length: apiSecret.length,
     },
     coinbase: null,
   };
