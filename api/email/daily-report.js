@@ -13,7 +13,10 @@ module.exports = async function handler(req, res) {
   }
 
   const auth = req.headers.authorization;
-  if (auth !== `Bearer ${process.env.CRON_SECRET}` && auth !== `Bearer ${process.env.ADMIN_PASSWORD}`) {
+  const queryKey = req.query && req.query.key;
+  const validBearer = auth === `Bearer ${process.env.CRON_SECRET}` || auth === `Bearer ${process.env.ADMIN_PASSWORD}`;
+  const validQuery = queryKey === process.env.CRON_SECRET || queryKey === process.env.ADMIN_PASSWORD;
+  if (!validBearer && !validQuery) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
