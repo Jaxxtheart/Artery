@@ -106,7 +106,7 @@ export default function Home() {
       <section className="contact" id="contact">
         <h2>Ready to build the future?</h2>
         <p>Let's turn your vision into reality</p>
-        <a href="mailto:invest@arterycapital.com" className="contact-email">invest@arterycapital.com</a>
+        <a href="mailto:invest@arterycapital.co.za" className="contact-email">invest@arterycapital.co.za</a>
       </section>
 
       <footer>
