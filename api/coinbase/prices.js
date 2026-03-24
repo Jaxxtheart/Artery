@@ -5,7 +5,7 @@
 
 const { createCoinbaseClient } = require('../../lib/coinbase/client');
 
-const DEFAULT_SYMBOLS = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'AVAX-USD', 'MATIC-USD'];
+const DEFAULT_SYMBOLS = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'AVAX-USD', 'POL-USD', 'LINK-USD', 'ADA-USD', 'DOGE-USD'];
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') {
