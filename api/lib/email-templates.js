@@ -110,7 +110,7 @@ function applicantConfirmationEmail(data) {
                 <strong>Artery Capital</strong> • Africa's Innovation Starts Here
               </p>
               <p style="margin: 0; font-size: 12px; color: #9CA3AF; text-align: center;">
-                invest@arterycapital.com
+                invest@arterycapital.co.za
               </p>
             </td>
           </tr>

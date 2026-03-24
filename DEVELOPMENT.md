@@ -67,8 +67,8 @@ SUPABASE_SERVICE_KEY=eyJxxx...
 
 # Resend (get from https://resend.com)
 RESEND_API_KEY=re_xxx...
-ADMIN_EMAIL=invest@arterycapital.com
-FROM_EMAIL=Artery Capital <noreply@arterycapital.com>
+ADMIN_EMAIL=invest@arterycapital.co.za
+FROM_EMAIL=Artery Capital <noreply@arterycapital.co.za>
 
 # Admin password
 ADMIN_PASSWORD=admin123
@@ -399,7 +399,7 @@ For development issues:
 2. Review PHASE4_IMPLEMENTATION.md
 3. Check ADMIN_SYSTEM.md for admin issues
 4. Review Vercel/Supabase logs
-5. Contact: invest@arterycapital.com
+5. Contact: invest@arterycapital.co.za
 
 ---
 

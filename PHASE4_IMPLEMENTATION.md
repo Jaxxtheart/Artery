@@ -101,8 +101,8 @@ SUPABASE_SERVICE_KEY=your-service-role-key
 
 # Resend
 RESEND_API_KEY=re_your_api_key_here
-ADMIN_EMAIL=invest@arterycapital.com
-FROM_EMAIL=Artery Capital <noreply@arterycapital.com>
+ADMIN_EMAIL=invest@arterycapital.co.za
+FROM_EMAIL=Artery Capital <noreply@arterycapital.co.za>
 
 # Admin Dashboard (REQUIRED)
 ADMIN_PASSWORD=admin123
@@ -288,7 +288,7 @@ For issues or questions:
 - Check Vercel function logs
 - Check Supabase logs (Dashboard > Logs)
 - Review API response errors in browser Network tab
-- Contact: invest@arterycapital.com
+- Contact: invest@arterycapital.co.za
 
 ---
 

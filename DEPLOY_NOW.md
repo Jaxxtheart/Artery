@@ -43,13 +43,13 @@ Click **"Add New"** for each variable below:
 
 ### Variable 4:
 - **Key**: `ADMIN_EMAIL`
-- **Value**: `invest@arterycapital.com`
+- **Value**: `invest@arterycapital.co.za`
 - **Environment**: ✓ Production
 - Click **Save**
 
 ### Variable 5:
 - **Key**: `FROM_EMAIL`
-- **Value**: `Artery Capital <noreply@arterycapital.com>`
+- **Value**: `Artery Capital <noreply@arterycapital.co.za>`
 - **Environment**: ✓ Production
 - Click **Save**
 

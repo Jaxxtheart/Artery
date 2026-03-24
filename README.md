@@ -300,7 +300,7 @@ Run `schema.sql` in Supabase to create all tables, indexes, and policies.
 
 ## 📞 Support
 
-- **Email**: invest@arterycapital.com
+- **Email**: invest@arterycapital.co.za
 - **Issues**: GitHub Issues
 - **Documentation**: See documentation files
 
