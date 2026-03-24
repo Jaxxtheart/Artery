@@ -114,9 +114,6 @@ export default function Home() {
       <footer>
         <p>© 2026 Artery Capital. All rights reserved.</p>
         <Link to="/admin" className="admin-link">Admin</Link>
-        <Link to="/admin" style={{color: '#4A4A4A', textDecoration: 'none', fontSize: '12px', marginTop: '12px', display: 'inline-block', opacity: 0.5, transition: 'opacity 0.3s'}}>
-          Admin
-        </Link>
       </footer>
     </div>
   );
