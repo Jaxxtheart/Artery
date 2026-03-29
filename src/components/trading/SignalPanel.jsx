@@ -28,8 +28,10 @@ function ConfidenceBar({ value }) {
   );
 }
 
-function getActionContext(signal, openPositions = []) {
+function getActionContext(signal, openPositions = [], liveAssets = []) {
+  const ticker = signal.symbol.replace('-USD', '');
   const hasTrackedPosition = openPositions.some(p => p.symbol === signal.symbol && p.status === 'OPEN');
+  const hasHolding = liveAssets.some(a => a.currency === ticker && a.balance > 0);
 
   if (signal.signal === 'BUY') {
     if (signal.confidence >= 0.60) {
@@ -51,9 +53,15 @@ function getActionContext(signal, openPositions = []) {
         color: '#DC2626',
       };
     }
+    if (hasHolding) {
+      return {
+        text: `You hold ${ticker} but it wasn't opened by the bot — it won't sell automatically. Use Execute Sell to action this manually.`,
+        color: '#DC2626',
+      };
+    }
     return {
-      text: `Your ${signal.symbol.replace('-USD', '')} was not opened by the bot so it won't sell automatically. Use Execute Trade to action this manually.`,
-      color: '#DC2626',
+      text: `Market signal only — you don't hold ${ticker} so this cannot be executed.`,
+      color: '#A0A0A0',
     };
   }
 
@@ -63,7 +71,7 @@ function getActionContext(signal, openPositions = []) {
   };
 }
 
-export default function SignalPanel({ signals = [], openPositions = [], onRefresh, onExecute, isRefreshing }) {
+export default function SignalPanel({ signals = [], openPositions = [], liveAssets = [], onRefresh, onExecute, isRefreshing }) {
   const fmt = (v) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(v);
   const errorSignals = signals.filter(s => s.strategy === 'ERROR');
   const hasApiError = errorSignals.length > 0 && errorSignals.length === signals.length;
@@ -111,11 +119,13 @@ export default function SignalPanel({ signals = [], openPositions = [], onRefres
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {validSignals.map((signal, idx) => {
-            const context = getActionContext(signal, openPositions);
-            const isSellOnUntrackedPosition = signal.signal === 'SELL' && !openPositions.some(p => p.symbol === signal.symbol && p.status === 'OPEN');
+            const ticker = signal.symbol.replace('-USD', '');
+            const context = getActionContext(signal, openPositions, liveAssets);
+            const hasTrackedPosition = openPositions.some(p => p.symbol === signal.symbol && p.status === 'OPEN');
+            const hasHolding = liveAssets.some(a => a.currency === ticker && a.balance > 0);
             const showExecute = onExecute && (
               (signal.signal === 'BUY' && signal.confidence >= 0.60) ||
-              (signal.signal === 'SELL' && isSellOnUntrackedPosition)
+              (signal.signal === 'SELL' && (hasTrackedPosition || hasHolding))
             );
             return (
               <div key={`${signal.symbol}-${signal.strategy}-${idx}`} style={{
