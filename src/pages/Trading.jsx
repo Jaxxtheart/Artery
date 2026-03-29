@@ -230,6 +230,7 @@ export default function Trading() {
             summary={costBasis?.summary || null}
             cashAvailable={status?.portfolio?.liveAssets?.find(a => a.type === 'cash')?.value_usd || 0}
             isLoading={isLoadingCostBasis}
+            onRefresh={fetchCostBasis}
           />
 
           {/* Row 3: Chart + Strategy Controls */}

@@ -1,10 +1,15 @@
 /**
  * GET /api/coinbase/cost-basis
- * Calculates weighted average cost basis for each held coin using fill history.
- * Returns per-coin: costBasis, totalSpent, totalUnits, unrealisedPnL, breakEvenPrice.
+ * Returns per-coin: costBasis, totalSpent, unrealisedPnL, breakEvenPrice.
+ *
+ * Source priority:
+ *   1. Manual entries stored in Supabase (holdings_cost_basis table)
+ *   2. Coinbase fills history (only covers Advanced Trade orders)
+ *   3. N/A — user must enter manually
  */
 
 const { createCoinbaseClient } = require('../../lib/coinbase/client');
+const { supabase } = require('../../lib/supabase');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -14,87 +19,82 @@ module.exports = async function handler(req, res) {
   try {
     const coinbase = createCoinbaseClient();
 
-    // Fetch current holdings and all fills in parallel
-    const [portfolio, fillsData] = await Promise.all([
+    // Fetch portfolio, fills, and manual Supabase entries in parallel
+    const [portfolio, fillsData, manualData] = await Promise.all([
       coinbase.getPortfolio(),
-      coinbase.getFills(),
+      coinbase.getFills().catch(() => ({ fills: [] })),
+      supabase
+        ? supabase.from('holdings_cost_basis').select('*').then(r => r.data || [])
+        : Promise.resolve([]),
     ]);
 
-    const fills = fillsData?.fills || [];
+    // Build manual cost map from Supabase  { currency -> total_spent }
+    const manualMap = {};
+    for (const row of manualData) {
+      manualMap[row.currency.toUpperCase()] = parseFloat(row.total_spent);
+    }
 
-    // Build weighted-average cost basis per coin from BUY fills
-    // costMap[currency] = { totalSpent, totalUnits }
-    const costMap = {};
-    for (const fill of fills) {
-      const side = fill.side?.toUpperCase();
-      if (side !== 'BUY') continue;
-
+    // Build fills-based cost map  { currency -> { totalSpent, totalUnits } }
+    const fillsMap = {};
+    for (const fill of (fillsData?.fills || [])) {
+      if (fill.side?.toUpperCase() !== 'BUY') continue;
       const currency = fill.product_id?.replace('-USD', '');
       if (!currency) continue;
-
       const price = parseFloat(fill.price || 0);
       const size  = parseFloat(fill.size  || 0);
       if (!price || !size) continue;
-
-      if (!costMap[currency]) costMap[currency] = { totalSpent: 0, totalUnits: 0 };
-      costMap[currency].totalSpent += price * size;
-      costMap[currency].totalUnits += size;
+      if (!fillsMap[currency]) fillsMap[currency] = { totalSpent: 0, totalUnits: 0 };
+      fillsMap[currency].totalSpent += price * size;
+      fillsMap[currency].totalUnits += size;
     }
 
-    // Build analysis for each held crypto asset
     const holdings = portfolio
       .filter(a => a.type === 'crypto' && a.balance > 0.000001)
       .map(a => {
-        const cm = costMap[a.currency];
+        const currency     = a.currency;
+        const balance      = a.balance || 0;
+        const currentPrice = a.price   || 0;
         const currentValue = a.value_usd || 0;
-        const currentPrice = a.price || 0;
-        const balance = a.balance || 0;
 
-        if (!cm || cm.totalUnits === 0) {
-          return {
-            currency: a.currency,
-            balance,
-            currentPrice,
-            currentValue,
-            costBasis: null,
-            totalCost: null,
-            unrealisedPnl: null,
-            unrealisedPnlPct: null,
-            breakEvenPrice: null,
-          };
+        // Priority 1: manual Supabase entry
+        let totalCost = null;
+        let source    = null;
+
+        if (manualMap[currency] != null) {
+          totalCost = manualMap[currency];
+          source    = 'manual';
+        } else if (fillsMap[currency]?.totalUnits > 0) {
+          totalCost = fillsMap[currency].totalSpent;
+          source    = 'fills';
         }
 
-        const costBasis    = cm.totalSpent / cm.totalUnits; // avg price per unit
-        const totalCost    = costBasis * balance;
+        if (totalCost === null) {
+          return { currency, balance, currentPrice, currentValue, costBasis: null, totalCost: null, unrealisedPnl: null, unrealisedPnlPct: null, breakEvenPrice: null, source: null };
+        }
+
+        const costBasis        = totalCost / balance;
         const unrealisedPnl    = currentValue - totalCost;
         const unrealisedPnlPct = (unrealisedPnl / totalCost) * 100;
         const breakEvenPrice   = totalCost / balance;
 
-        return {
-          currency: a.currency,
-          balance,
-          currentPrice,
-          currentValue,
-          costBasis,
-          totalCost,
-          unrealisedPnl,
-          unrealisedPnlPct,
-          breakEvenPrice,
-        };
+        return { currency, balance, currentPrice, currentValue, costBasis, totalCost, unrealisedPnl, unrealisedPnlPct, breakEvenPrice, source };
       });
 
     const totalCurrentValue  = holdings.reduce((s, h) => s + h.currentValue, 0);
-    const totalCost          = holdings.reduce((s, h) => s + (h.totalCost || h.currentValue), 0);
-    const totalUnrealisedPnl = totalCurrentValue - totalCost;
+    const totalCost          = holdings.reduce((s, h) => s + (h.totalCost ?? h.currentValue), 0);
+    const totalUnrealisedPnl = holdings
+      .filter(h => h.unrealisedPnl !== null)
+      .reduce((s, h) => s + h.unrealisedPnl, 0);
+    const hasAnyCostBasis    = holdings.some(h => h.totalCost !== null);
 
     return res.status(200).json({
       success: true,
       holdings,
       summary: {
         totalCurrentValue,
-        totalCost,
-        totalUnrealisedPnl,
-        totalUnrealisedPnlPct: totalCost > 0 ? (totalUnrealisedPnl / totalCost) * 100 : 0,
+        totalCost: hasAnyCostBasis ? totalCost : null,
+        totalUnrealisedPnl: hasAnyCostBasis ? totalUnrealisedPnl : null,
+        totalUnrealisedPnlPct: hasAnyCostBasis && totalCost > 0 ? (totalUnrealisedPnl / totalCost) * 100 : null,
       },
     });
   } catch (error) {
