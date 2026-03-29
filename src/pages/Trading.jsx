@@ -218,7 +218,7 @@ export default function Trading() {
 
           {/* Row 3: Signals + Risk */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <SignalPanel signals={signals} onRefresh={fetchSignals} onExecute={handleExecuteTrade} isRefreshing={isRefreshingSignals} />
+            <SignalPanel signals={signals} openPositions={status?.openPositions || []} onRefresh={fetchSignals} onExecute={handleExecuteTrade} isRefreshing={isRefreshingSignals} />
             <RiskMetrics riskMetrics={status?.riskMetrics} snapshots={status?.snapshots || []} />
           </div>
 

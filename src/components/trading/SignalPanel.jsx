@@ -28,7 +28,42 @@ function ConfidenceBar({ value }) {
   );
 }
 
-export default function SignalPanel({ signals = [], onRefresh, onExecute, isRefreshing }) {
+function getActionContext(signal, openPositions = []) {
+  const hasTrackedPosition = openPositions.some(p => p.symbol === signal.symbol && p.status === 'OPEN');
+
+  if (signal.signal === 'BUY') {
+    if (signal.confidence >= 0.60) {
+      return {
+        text: 'Queued for auto-execution — the hourly bot will buy this using available USD cash if fewer than 4 positions are open.',
+        color: '#16A34A',
+      };
+    }
+    return {
+      text: `Confidence is ${Math.round(signal.confidence * 100)}% — below the 60% minimum threshold. Bot is monitoring but will not execute.`,
+      color: '#D97706',
+    };
+  }
+
+  if (signal.signal === 'SELL') {
+    if (hasTrackedPosition) {
+      return {
+        text: 'Bot will auto-close this position at the next hourly run since it was opened by the bot.',
+        color: '#DC2626',
+      };
+    }
+    return {
+      text: `Your ${signal.symbol.replace('-USD', '')} was not opened by the bot so it won't sell automatically. Use Execute Trade to action this manually.`,
+      color: '#DC2626',
+    };
+  }
+
+  return {
+    text: 'No entry conditions met yet — bot is monitoring for alignment.',
+    color: '#A0A0A0',
+  };
+}
+
+export default function SignalPanel({ signals = [], openPositions = [], onRefresh, onExecute, isRefreshing }) {
   const fmt = (v) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(v);
   const errorSignals = signals.filter(s => s.strategy === 'ERROR');
   const hasApiError = errorSignals.length > 0 && errorSignals.length === signals.length;
@@ -75,43 +110,63 @@ export default function SignalPanel({ signals = [], onRefresh, onExecute, isRefr
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {validSignals.map((signal, idx) => (
-            <div key={`${signal.symbol}-${signal.strategy}-${idx}`} style={{
-              border: `1px solid ${signal.signal === 'BUY' ? 'rgba(22,163,74,0.15)' : signal.signal === 'SELL' ? 'rgba(220,38,38,0.15)' : '#EBEBEA'}`,
-              background: signal.signal === 'BUY' ? 'rgba(22,163,74,0.03)' : signal.signal === 'SELL' ? 'rgba(220,38,38,0.03)' : '#FAFAF9',
-              borderRadius: 10, padding: '12px 14px',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#1A1A1A' }}>{signal.symbol}</span>
-                  <SignalBadge signal={signal.signal} />
-                  <span style={{ fontSize: 10, color: '#A0A0A0', background: '#F5F5F4', padding: '2px 6px', borderRadius: 4 }}>
-                    {signal.strategy?.replace('_', ' ')}
-                  </span>
+          {validSignals.map((signal, idx) => {
+            const context = getActionContext(signal, openPositions);
+            const isSellOnUntrackedPosition = signal.signal === 'SELL' && !openPositions.some(p => p.symbol === signal.symbol && p.status === 'OPEN');
+            const showExecute = onExecute && (
+              (signal.signal === 'BUY' && signal.confidence >= 0.60) ||
+              (signal.signal === 'SELL' && isSellOnUntrackedPosition)
+            );
+            return (
+              <div key={`${signal.symbol}-${signal.strategy}-${idx}`} style={{
+                border: `1px solid ${signal.signal === 'BUY' ? 'rgba(22,163,74,0.15)' : signal.signal === 'SELL' ? 'rgba(220,38,38,0.15)' : '#EBEBEA'}`,
+                background: signal.signal === 'BUY' ? 'rgba(22,163,74,0.03)' : signal.signal === 'SELL' ? 'rgba(220,38,38,0.03)' : '#FAFAF9',
+                borderRadius: 10, padding: '12px 14px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#1A1A1A' }}>{signal.symbol}</span>
+                    <SignalBadge signal={signal.signal} />
+                    <span style={{ fontSize: 10, color: '#A0A0A0', background: '#F5F5F4', padding: '2px 6px', borderRadius: 4 }}>
+                      {signal.strategy?.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 13, color: '#4A4A4A' }}>{signal.price > 0 ? fmt(signal.price) : '—'}</div>
                 </div>
-                <div style={{ fontSize: 13, color: '#4A4A4A' }}>{signal.price > 0 ? fmt(signal.price) : '—'}</div>
+
+                <ConfidenceBar value={signal.confidence} />
+
+                <div style={{ fontSize: 11, color: '#8A8A8A', marginTop: 6, lineHeight: 1.5 }}>{signal.reason}</div>
+
+                <div style={{
+                  marginTop: 8, padding: '7px 10px', borderRadius: 6,
+                  background: signal.signal === 'HOLD' ? '#F5F5F4' : `${context.color}12`,
+                  borderLeft: `2px solid ${context.color}`,
+                  fontSize: 11, color: context.color, lineHeight: 1.5,
+                }}>
+                  {context.text}
+                </div>
+
+                {showExecute && (
+                  <button
+                    onClick={() => onExecute(signal)}
+                    style={{
+                      marginTop: 10, width: '100%', fontSize: 12, fontWeight: 500, padding: '7px 0',
+                      borderRadius: 6,
+                      background: signal.signal === 'BUY' ? 'rgba(22,163,74,0.06)' : 'rgba(220,38,38,0.06)',
+                      color: signal.signal === 'BUY' ? '#16A34A' : '#DC2626',
+                      border: `1px solid ${signal.signal === 'BUY' ? 'rgba(22,163,74,0.2)' : 'rgba(220,38,38,0.2)'}`,
+                      cursor: 'pointer', transition: 'background 0.2s',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = signal.signal === 'BUY' ? 'rgba(22,163,74,0.12)' : 'rgba(220,38,38,0.12)'}
+                    onMouseLeave={e => e.currentTarget.style.background = signal.signal === 'BUY' ? 'rgba(22,163,74,0.06)' : 'rgba(220,38,38,0.06)'}
+                  >
+                    {signal.signal === 'BUY' ? 'Execute Buy' : 'Execute Sell'}
+                  </button>
+                )}
               </div>
-
-              <ConfidenceBar value={signal.confidence} />
-
-              <div style={{ fontSize: 11, color: '#8A8A8A', marginTop: 6, lineHeight: 1.5 }}>{signal.reason}</div>
-
-              {signal.signal === 'BUY' && signal.confidence >= 0.60 && onExecute && (
-                <button
-                  onClick={() => onExecute(signal)}
-                  style={{
-                    marginTop: 10, width: '100%', fontSize: 12, fontWeight: 500, padding: '7px 0',
-                    borderRadius: 6, background: 'rgba(22,163,74,0.06)', color: '#16A34A',
-                    border: '1px solid rgba(22,163,74,0.2)', cursor: 'pointer', transition: 'background 0.2s',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(22,163,74,0.12)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(22,163,74,0.06)'}
-                >
-                  Execute Trade
-                </button>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
