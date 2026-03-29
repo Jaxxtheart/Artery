@@ -105,7 +105,7 @@ export default function Trading() {
     const res = await fetch(`${API_BASE}/api/trading/execute`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminPassword}` },
-      body: JSON.stringify(signal)
+      body: JSON.stringify({ ...signal, side: signal.signal })
     });
     const data = await res.json();
     if (data.success) { alert(`Trade executed: ${data.message}`); await fetchStatus(); await fetchSignals(); }
