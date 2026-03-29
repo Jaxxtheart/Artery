@@ -1,11 +1,11 @@
 /**
  * GET /api/coinbase/cost-basis
- * Returns per-coin: costBasis, totalSpent, unrealisedPnL, breakEvenPrice.
  *
- * Source priority:
- *   1. Manual entries stored in Supabase (holdings_cost_basis table)
- *   2. Coinbase fills history (only covers Advanced Trade orders)
- *   3. N/A — user must enter manually
+ * Source priority per coin:
+ *   1. Manual entry in Supabase (user override)
+ *   2. Coinbase portfolio breakdown API (cost_basis + unrealized_pnl)
+ *   3. Coinbase fills history (Advanced Trade orders only)
+ *   4. N/A
  */
 
 const { createCoinbaseClient } = require('../../lib/coinbase/client');
@@ -19,22 +19,45 @@ module.exports = async function handler(req, res) {
   try {
     const coinbase = createCoinbaseClient();
 
-    // Fetch portfolio, fills, and manual Supabase entries in parallel
-    const [portfolio, fillsData, manualData] = await Promise.all([
+    // Fetch all sources in parallel
+    const [portfolio, portfoliosData, fillsData, manualData] = await Promise.all([
       coinbase.getPortfolio(),
+      coinbase.getPortfolios().catch(() => ({ portfolios: [] })),
       coinbase.getFills().catch(() => ({ fills: [] })),
       supabase
         ? supabase.from('holdings_cost_basis').select('*').then(r => r.data || [])
         : Promise.resolve([]),
     ]);
 
-    // Build manual cost map from Supabase  { currency -> total_spent }
+    // ── Source 1: Manual Supabase entries ──────────────────────────────────
     const manualMap = {};
     for (const row of manualData) {
       manualMap[row.currency.toUpperCase()] = parseFloat(row.total_spent);
     }
 
-    // Build fills-based cost map  { currency -> { totalSpent, totalUnits } }
+    // ── Source 2: Portfolio breakdown (cost_basis per spot position) ───────
+    const breakdownMap = {};
+    try {
+      const portfolios = portfoliosData?.portfolios || [];
+      // Use first non-DEFAULT portfolio, or DEFAULT if that's all there is
+      const target = portfolios.find(p => p.type !== 'DEFAULT') || portfolios[0];
+      if (target?.uuid) {
+        const bd = await coinbase.getPortfolioBreakdown(target.uuid);
+        const positions = bd?.breakdown?.spot_positions || [];
+        for (const pos of positions) {
+          const currency = pos.asset;
+          if (!currency) continue;
+          // cost_basis is total USD spent; unrealized_pnl is already computed
+          const totalCost   = parseFloat(pos.cost_basis?.value    ?? pos.cost_basis    ?? 0);
+          const unrealisedPnl = parseFloat(pos.unrealized_pnl?.value ?? pos.unrealized_pnl ?? 0);
+          if (totalCost > 0) breakdownMap[currency] = { totalCost, unrealisedPnl };
+        }
+      }
+    } catch {
+      // Non-fatal — fall through to fills
+    }
+
+    // ── Source 3: Fills-based weighted average ─────────────────────────────
     const fillsMap = {};
     for (const fill of (fillsData?.fills || [])) {
       if (fill.side?.toUpperCase() !== 'BUY') continue;
@@ -48,24 +71,28 @@ module.exports = async function handler(req, res) {
       fillsMap[currency].totalUnits += size;
     }
 
+    // ── Build per-holding result ───────────────────────────────────────────
     const holdings = portfolio
       .filter(a => a.type === 'crypto' && a.balance > 0.000001)
       .map(a => {
-        const currency     = a.currency;
-        const balance      = a.balance || 0;
-        const currentPrice = a.price   || 0;
-        const currentValue = a.value_usd || 0;
+        const { currency, balance = 0, price: currentPrice = 0, value_usd: currentValue = 0 } = a;
 
-        // Priority 1: manual Supabase entry
         let totalCost = null;
-        let source    = null;
+        let unrealisedPnl = null;
+        let source = null;
 
         if (manualMap[currency] != null) {
-          totalCost = manualMap[currency];
-          source    = 'manual';
+          totalCost     = manualMap[currency];
+          unrealisedPnl = currentValue - totalCost;
+          source        = 'manual';
+        } else if (breakdownMap[currency]) {
+          totalCost     = breakdownMap[currency].totalCost;
+          unrealisedPnl = breakdownMap[currency].unrealisedPnl || (currentValue - totalCost);
+          source        = 'coinbase';
         } else if (fillsMap[currency]?.totalUnits > 0) {
-          totalCost = fillsMap[currency].totalSpent;
-          source    = 'fills';
+          totalCost     = fillsMap[currency].totalSpent;
+          unrealisedPnl = currentValue - totalCost;
+          source        = 'fills';
         }
 
         if (totalCost === null) {
@@ -73,7 +100,6 @@ module.exports = async function handler(req, res) {
         }
 
         const costBasis        = totalCost / balance;
-        const unrealisedPnl    = currentValue - totalCost;
         const unrealisedPnlPct = (unrealisedPnl / totalCost) * 100;
         const breakEvenPrice   = totalCost / balance;
 
@@ -81,20 +107,20 @@ module.exports = async function handler(req, res) {
       });
 
     const totalCurrentValue  = holdings.reduce((s, h) => s + h.currentValue, 0);
-    const totalCost          = holdings.reduce((s, h) => s + (h.totalCost ?? h.currentValue), 0);
-    const totalUnrealisedPnl = holdings
-      .filter(h => h.unrealisedPnl !== null)
-      .reduce((s, h) => s + h.unrealisedPnl, 0);
-    const hasAnyCostBasis    = holdings.some(h => h.totalCost !== null);
+    const knownHoldings      = holdings.filter(h => h.totalCost !== null);
+    const totalCost          = knownHoldings.reduce((s, h) => s + h.totalCost, 0);
+    const totalUnrealisedPnl = knownHoldings.reduce((s, h) => s + h.unrealisedPnl, 0);
+    const hasAnyCostBasis    = knownHoldings.length > 0;
 
     return res.status(200).json({
       success: true,
       holdings,
       summary: {
         totalCurrentValue,
-        totalCost: hasAnyCostBasis ? totalCost : null,
+        totalCost:          hasAnyCostBasis ? totalCost : null,
         totalUnrealisedPnl: hasAnyCostBasis ? totalUnrealisedPnl : null,
-        totalUnrealisedPnlPct: hasAnyCostBasis && totalCost > 0 ? (totalUnrealisedPnl / totalCost) * 100 : null,
+        totalUnrealisedPnlPct: hasAnyCostBasis && totalCost > 0
+          ? (totalUnrealisedPnl / totalCost) * 100 : null,
       },
     });
   } catch (error) {
