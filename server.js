@@ -36,6 +36,7 @@ const getHandler = require('./api/applications/get.js');
 const portfolioHandler = require('./api/coinbase/portfolio.js');
 const pricesHandler = require('./api/coinbase/prices.js');
 const ordersHandler = require('./api/coinbase/orders.js');
+const costBasisHandler = require('./api/coinbase/cost-basis.js');
 const signalsHandler = require('./api/trading/signals.js');
 const statusHandler = require('./api/trading/status.js');
 const executeHandler = require('./api/trading/execute.js');
@@ -121,6 +122,7 @@ function wrapHandler(handler) {
 app.get('/api/coinbase/portfolio', wrapHandler(portfolioHandler));
 app.get('/api/coinbase/prices', wrapHandler(pricesHandler));
 app.all('/api/coinbase/orders', wrapHandler(ordersHandler));
+app.get('/api/coinbase/cost-basis', wrapHandler(costBasisHandler));
 
 // Trading routes
 app.get('/api/trading/signals', wrapHandler(signalsHandler));

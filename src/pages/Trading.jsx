@@ -8,6 +8,7 @@ import LiveChart from '../components/trading/LiveChart';
 import SignalPanel from '../components/trading/SignalPanel';
 import StrategyControls from '../components/trading/StrategyControls';
 import RiskMetrics from '../components/trading/RiskMetrics';
+import HoldingsAnalysis from '../components/trading/HoldingsAnalysis';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 const REFRESH_INTERVAL = 30000;
@@ -44,7 +45,9 @@ function ArteryLogo() {
 export default function Trading() {
   const [status, setStatus] = useState(null);
   const [signals, setSignals] = useState([]);
+  const [costBasis, setCostBasis] = useState(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(true);
+  const [isLoadingCostBasis, setIsLoadingCostBasis] = useState(true);
   const [isRefreshingSignals, setIsRefreshingSignals] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [error, setError] = useState(null);
@@ -79,12 +82,27 @@ export default function Trading() {
     }
   }, []);
 
+  const fetchCostBasis = useCallback(async () => {
+    setIsLoadingCostBasis(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/coinbase/cost-basis`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.success) setCostBasis(data);
+    } catch (err) {
+      console.error('Cost basis error:', err);
+    } finally {
+      setIsLoadingCostBasis(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchStatus();
     fetchSignals();
+    fetchCostBasis();
     const interval = setInterval(() => fetchStatus(true), REFRESH_INTERVAL);
     return () => clearInterval(interval);
-  }, [fetchStatus, fetchSignals]);
+  }, [fetchStatus, fetchSignals, fetchCostBasis]);
 
   async function handleClosePosition(positionId) {
     const adminPassword = prompt('Enter admin password to close position:');
@@ -206,7 +224,16 @@ export default function Trading() {
           {/* Row 1: Portfolio Summary */}
           <PortfolioSummary portfolio={status?.portfolio} />
 
-          {/* Row 2: Chart + Strategy Controls */}
+          {/* Row 2: Holdings Analysis */}
+          <HoldingsAnalysis
+            holdings={costBasis?.holdings || []}
+            summary={costBasis?.summary || null}
+            cashAvailable={status?.portfolio?.liveAssets?.find(a => a.type === 'cash')?.value_usd || 0}
+            isLoading={isLoadingCostBasis}
+          />
+
+          {/* Row 3: Chart + Strategy Controls */}
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
               <LiveChart snapshots={status?.snapshots || []} />
