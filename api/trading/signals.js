@@ -14,7 +14,19 @@ module.exports = async function handler(req, res) {
 
   try {
     const coinbase = createCoinbaseClient();
-    const signals = await getAllSignals(coinbase);
+
+    // Fetch live portfolio so we can generate signals for all held coins
+    let heldSymbols = [];
+    try {
+      const portfolio = await coinbase.getPortfolio();
+      heldSymbols = portfolio
+        .filter(a => a.type === 'crypto' && a.balance > 0)
+        .map(a => a.currency);
+    } catch {
+      // Non-fatal — fall back to monitored list only
+    }
+
+    const signals = await getAllSignals(coinbase, heldSymbols);
 
     // Optionally persist signals to DB
     if (supabase) {

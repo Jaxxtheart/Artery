@@ -1,4 +1,4 @@
-import { RefreshCw, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { RefreshCw, TrendingUp, TrendingDown, Minus, Wallet } from 'lucide-react';
 
 function SignalBadge({ signal }) {
   const config = {
@@ -79,6 +79,7 @@ export default function SignalPanel({ signals = [], openPositions = [], liveAsse
   const validSignals = hasApiError ? [] : signals;
   const actionable = validSignals.filter(s => s.signal !== 'HOLD');
   const holds = validSignals.filter(s => s.signal === 'HOLD');
+  const heldActionable = actionable.filter(s => s.held);
 
   return (
     <div style={{ background: '#fff', border: '1px solid #EBEBEA', borderRadius: 12, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
@@ -89,6 +90,9 @@ export default function SignalPanel({ signals = [], openPositions = [], liveAsse
           </h2>
           <p style={{ fontSize: 11, color: '#C0C0C0', margin: '4px 0 0' }}>
             {actionable.length} actionable · {holds.length} monitoring
+            {heldActionable.length > 0 && (
+              <span style={{ color: '#7C3AED', marginLeft: 6 }}>· {heldActionable.length} from your holdings</span>
+            )}
           </p>
         </div>
         <button
@@ -140,6 +144,12 @@ export default function SignalPanel({ signals = [], openPositions = [], liveAsse
                     <span style={{ fontSize: 10, color: '#A0A0A0', background: '#F5F5F4', padding: '2px 6px', borderRadius: 4 }}>
                       {signal.strategy?.replace('_', ' ')}
                     </span>
+                    {signal.held && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 600, color: '#7C3AED', background: 'rgba(124,58,237,0.08)', padding: '2px 6px', borderRadius: 4 }}>
+                        <Wallet size={9} />
+                        HELD
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontSize: 13, color: '#4A4A4A' }}>{signal.price > 0 ? fmt(signal.price) : '—'}</div>
                 </div>
