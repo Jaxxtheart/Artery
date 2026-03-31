@@ -28,6 +28,13 @@ module.exports = async function handler(req, res) {
   const isBuy  = side.toUpperCase() === 'BUY';
   const isSell = side.toUpperCase() === 'SELL';
 
+  // Round a value to the decimal precision defined by a Coinbase increment string
+  // e.g. base_increment "0.01" → 2 dp,  "1" → 0 dp,  "0.00000001" → 8 dp
+  function roundToIncrement(value, increment = '0.00000001') {
+    const decimals = (increment.toString().split('.')[1] || '').length;
+    return parseFloat(value.toFixed(decimals));
+  }
+
   try {
     const coinbase = createCoinbaseClient();
 
@@ -75,8 +82,11 @@ module.exports = async function handler(req, res) {
       if (!asset || asset.balance <= 0) {
         return res.status(400).json({ error: `No ${ticker} balance to sell` });
       }
-      // Trim 0.1% to avoid rounding rejections from Coinbase
-      orderSize = asset.balance * 0.999;
+      // Round to product's base_increment precision to avoid INVALID_SIZE_PRECISION
+      const productDetails = await coinbase.getProductDetails(symbol).catch(() => ({}));
+      const baseIncrement  = productDetails.base_increment || '0.00000001';
+      // Trim 0.1% first so rounding doesn't push us above available balance
+      orderSize = roundToIncrement(asset.balance * 0.999, baseIncrement);
     }
 
     // Dry run — use preview endpoint, no real order placed
@@ -94,7 +104,7 @@ module.exports = async function handler(req, res) {
         would_succeed: !previewError,
         order_params: {
           symbol, side: side.toUpperCase(), orderSize,
-          orderSizeLabel: isBuy ? `$${orderSize.toFixed(2)} USD` : `${orderSize.toFixed(6)} ${ticker}`,
+          orderSizeLabel: isBuy ? `$${orderSize.toFixed(2)} USD` : `${orderSize} ${ticker}`,
           size_field: isBuy ? 'quote_size' : 'base_size',
           currentPrice,
         },
