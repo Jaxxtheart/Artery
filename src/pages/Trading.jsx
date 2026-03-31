@@ -127,7 +127,10 @@ export default function Trading() {
     });
     const data = await res.json();
     if (data.success) { alert(`Trade executed: ${data.message}`); await fetchStatus(); await fetchSignals(); }
-    else alert(`Error: ${data.error}`);
+    else {
+      const detail = data.details ? `\n\nCoinbase response:\n${JSON.stringify(data.details, null, 2)}` : '';
+      alert(`Error: ${data.error}${detail}`);
+    }
   }
 
   const isLoading = isLoadingStatus && !status;

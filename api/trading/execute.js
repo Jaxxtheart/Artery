@@ -75,7 +75,8 @@ module.exports = async function handler(req, res) {
       if (!asset || asset.balance <= 0) {
         return res.status(400).json({ error: `No ${ticker} balance to sell` });
       }
-      orderSize = asset.balance;
+      // Trim 0.1% to avoid rounding rejections from Coinbase
+      orderSize = asset.balance * 0.999;
     }
 
     // Place order
@@ -84,9 +85,11 @@ module.exports = async function handler(req, res) {
     const success  = !!(order.success || orderId);
 
     if (!success) {
+      const cb = order.error_response || {};
+      const reason = cb.preview_failure_reason || cb.new_order_failure_reason || cb.message || cb.error || JSON.stringify(order);
       return res.status(400).json({
-        error: 'Order placement failed',
-        details: order.error_response || order
+        error: `Order placement failed: ${reason}`,
+        details: order
       });
     }
 
