@@ -11,6 +11,7 @@ const { createCoinbaseClient } = require('../../lib/coinbase/client');
 const { calculatePositionSize, checkRiskLimits } = require('../../lib/trading/risk-manager');
 
 module.exports = async function handler(req, res) {
+  if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }

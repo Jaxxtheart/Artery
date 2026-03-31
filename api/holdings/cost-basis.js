@@ -9,6 +9,7 @@
 const { supabase } = require('../../lib/supabase');
 
 module.exports = async function handler(req, res) {
+  if (req.method === 'OPTIONS') return res.status(200).end();
   if (!supabase) {
     return res.status(503).json({ error: 'Database not configured' });
   }

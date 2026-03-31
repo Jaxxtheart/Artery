@@ -95,7 +95,13 @@ export default function SignalPanel({ signals = [], openPositions = [], liveAsse
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pw}` },
         body: JSON.stringify({ symbol: signal.symbol, side: signal.signal, confidence: signal.confidence }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { success: false, would_succeed: false, error: `Server returned non-JSON (HTTP ${res.status}): ${text.slice(0, 300)}` };
+      }
       setTestResults(prev => ({ ...prev, [key]: { loading: false, data } }));
     } catch (e) {
       setTestResults(prev => ({ ...prev, [key]: { loading: false, data: { success: false, error: e.message } } }));
