@@ -1,4 +1,7 @@
-import { RefreshCw, TrendingUp, TrendingDown, Minus, Wallet } from 'lucide-react';
+import { useState } from 'react';
+import { RefreshCw, TrendingUp, TrendingDown, Minus, Wallet, FlaskConical } from 'lucide-react';
+
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 function SignalBadge({ signal }) {
   const config = {
@@ -73,6 +76,31 @@ function getActionContext(signal, openPositions = [], liveAssets = []) {
 
 export default function SignalPanel({ signals = [], openPositions = [], liveAssets = [], onRefresh, onExecute, isRefreshing }) {
   const fmt = (v) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(v);
+
+  const [testResults, setTestResults] = useState({});   // { [symbol-side]: { loading, data } }
+  const [adminPw, setAdminPw] = useState(null);
+
+  async function runTest(signal) {
+    const key = `${signal.symbol}-${signal.signal}`;
+    let pw = adminPw;
+    if (!pw) {
+      pw = prompt('Enter admin password to run test:');
+      if (!pw) return;
+      setAdminPw(pw);
+    }
+    setTestResults(prev => ({ ...prev, [key]: { loading: true, data: null } }));
+    try {
+      const res = await fetch(`${API_BASE}/api/trading/test-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pw}` },
+        body: JSON.stringify({ symbol: signal.symbol, side: signal.signal, confidence: signal.confidence }),
+      });
+      const data = await res.json();
+      setTestResults(prev => ({ ...prev, [key]: { loading: false, data } }));
+    } catch (e) {
+      setTestResults(prev => ({ ...prev, [key]: { loading: false, data: { success: false, error: e.message } } }));
+    }
+  }
   const errorSignals = signals.filter(s => s.strategy === 'ERROR');
   const hasApiError = errorSignals.length > 0 && errorSignals.length === signals.length;
   const apiErrorMsg = hasApiError ? errorSignals[0]?.reason : null;
@@ -167,23 +195,78 @@ export default function SignalPanel({ signals = [], openPositions = [], liveAsse
                   {context.text}
                 </div>
 
-                {showExecute && (
-                  <button
-                    onClick={() => onExecute(signal)}
-                    style={{
-                      marginTop: 10, width: '100%', fontSize: 12, fontWeight: 500, padding: '7px 0',
-                      borderRadius: 6,
-                      background: signal.signal === 'BUY' ? 'rgba(22,163,74,0.06)' : 'rgba(220,38,38,0.06)',
-                      color: signal.signal === 'BUY' ? '#16A34A' : '#DC2626',
-                      border: `1px solid ${signal.signal === 'BUY' ? 'rgba(22,163,74,0.2)' : 'rgba(220,38,38,0.2)'}`,
-                      cursor: 'pointer', transition: 'background 0.2s',
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = signal.signal === 'BUY' ? 'rgba(22,163,74,0.12)' : 'rgba(220,38,38,0.12)'}
-                    onMouseLeave={e => e.currentTarget.style.background = signal.signal === 'BUY' ? 'rgba(22,163,74,0.06)' : 'rgba(220,38,38,0.06)'}
-                  >
-                    {signal.signal === 'BUY' ? 'Execute Buy' : 'Execute Sell'}
-                  </button>
-                )}
+                {showExecute && (() => {
+                  const testKey = `${signal.symbol}-${signal.signal}`;
+                  const test = testResults[testKey];
+                  const isBuy = signal.signal === 'BUY';
+                  const activeColor = isBuy ? '#16A34A' : '#DC2626';
+                  const activeBg   = isBuy ? 'rgba(22,163,74,0.06)' : 'rgba(220,38,38,0.06)';
+                  const activeBgHover = isBuy ? 'rgba(22,163,74,0.12)' : 'rgba(220,38,38,0.12)';
+                  const activeBorder = isBuy ? 'rgba(22,163,74,0.2)' : 'rgba(220,38,38,0.2)';
+                  return (
+                    <>
+                      {/* Test result panel */}
+                      {test && !test.loading && test.data && (
+                        <div style={{ marginTop: 10, borderRadius: 6, border: `1px solid ${test.data.would_succeed ? 'rgba(22,163,74,0.2)' : 'rgba(220,38,38,0.2)'}`, background: test.data.would_succeed ? 'rgba(22,163,74,0.04)' : 'rgba(220,38,38,0.04)', padding: '10px 12px', fontSize: 11 }}>
+                          <div style={{ fontWeight: 600, color: test.data.would_succeed ? '#16A34A' : '#DC2626', marginBottom: 6 }}>
+                            {test.data.would_succeed ? '✓ Order would succeed' : '✗ Order would fail'}
+                          </div>
+                          {test.data.order_params && (
+                            <div style={{ color: '#6A6A6A', marginBottom: 4 }}>
+                              Size: <strong>{test.data.order_params.orderSizeLabel}</strong> via <strong>{test.data.order_params.size_field}</strong> @ {test.data.order_params.currentPrice ? `$${test.data.order_params.currentPrice}` : '—'}
+                            </div>
+                          )}
+                          {test.data.failed_checks?.length > 0 && (
+                            <div style={{ color: '#DC2626', marginBottom: 4 }}>Failed: {test.data.failed_checks.join(', ')}</div>
+                          )}
+                          {test.data.checks?.risk_reason && (
+                            <div style={{ color: '#DC2626' }}>Risk: {test.data.checks.risk_reason}</div>
+                          )}
+                          {test.data.preview_error && (
+                            <div style={{ color: '#DC2626', wordBreak: 'break-all', marginTop: 4 }}>
+                              Coinbase: {test.data.preview_error}
+                            </div>
+                          )}
+                          {test.data.coinbase_preview && (
+                            <details style={{ marginTop: 6 }}>
+                              <summary style={{ cursor: 'pointer', color: '#A0A0A0' }}>Coinbase preview response</summary>
+                              <pre style={{ fontSize: 10, marginTop: 4, whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: '#6A6A6A' }}>
+                                {JSON.stringify(test.data.coinbase_preview, null, 2)}
+                              </pre>
+                            </details>
+                          )}
+                          {test.data.error && !test.data.would_succeed && (
+                            <div style={{ color: '#DC2626', wordBreak: 'break-all' }}>{test.data.error}</div>
+                          )}
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                        {/* Test button */}
+                        <button
+                          onClick={() => runTest(signal)}
+                          disabled={test?.loading}
+                          style={{ flex: 1, fontSize: 12, fontWeight: 500, padding: '7px 0', borderRadius: 6, background: 'transparent', color: '#6A6A6A', border: '1px solid #E0E0DE', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#F5F5F4'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <FlaskConical size={11} />
+                          {test?.loading ? 'Testing…' : 'Test Order'}
+                        </button>
+
+                        {/* Execute button */}
+                        <button
+                          onClick={() => onExecute(signal)}
+                          style={{ flex: 2, fontSize: 12, fontWeight: 500, padding: '7px 0', borderRadius: 6, background: activeBg, color: activeColor, border: `1px solid ${activeBorder}`, cursor: 'pointer', transition: 'background 0.2s' }}
+                          onMouseEnter={e => e.currentTarget.style.background = activeBgHover}
+                          onMouseLeave={e => e.currentTarget.style.background = activeBg}
+                        >
+                          {isBuy ? 'Execute Buy' : 'Execute Sell'}
+                        </button>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             );
           })}
