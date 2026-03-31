@@ -90,10 +90,10 @@ export default function SignalPanel({ signals = [], openPositions = [], liveAsse
     }
     setTestResults(prev => ({ ...prev, [key]: { loading: true, data: null } }));
     try {
-      const res = await fetch(`${API_BASE}/api/trading/test-order`, {
+      const res = await fetch(`${API_BASE}/api/trading/execute`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pw}` },
-        body: JSON.stringify({ symbol: signal.symbol, side: signal.signal, confidence: signal.confidence }),
+        body: JSON.stringify({ symbol: signal.symbol, side: signal.signal, strategy: signal.strategy, confidence: signal.confidence, dry_run: true }),
       });
       const text = await res.text();
       let data;

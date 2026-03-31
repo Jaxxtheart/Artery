@@ -19,7 +19,7 @@ module.exports = async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const { symbol, side, confidence, strategy, price, reason, positionSizeUSD } = req.body;
+  const { symbol, side, confidence, strategy, price, reason, positionSizeUSD, dry_run = false } = req.body;
 
   if (!symbol || !side || !strategy) {
     return res.status(400).json({ error: 'symbol, side, and strategy are required' });
@@ -77,6 +77,36 @@ module.exports = async function handler(req, res) {
       }
       // Trim 0.1% to avoid rounding rejections from Coinbase
       orderSize = asset.balance * 0.999;
+    }
+
+    // Dry run — use preview endpoint, no real order placed
+    if (dry_run) {
+      let preview = null;
+      let previewError = null;
+      try {
+        preview = await coinbase.previewOrder(symbol, side, orderSize);
+      } catch (e) {
+        previewError = e.message;
+      }
+      return res.status(200).json({
+        success: true,
+        dry_run: true,
+        would_succeed: !previewError,
+        order_params: {
+          symbol, side: side.toUpperCase(), orderSize,
+          orderSizeLabel: isBuy ? `$${orderSize.toFixed(2)} USD` : `${orderSize.toFixed(6)} ${ticker}`,
+          size_field: isBuy ? 'quote_size' : 'base_size',
+          currentPrice,
+        },
+        portfolio_snapshot: {
+          totalValue,
+          cashBalance: portfolio.filter(a => a.type === 'cash').reduce((s, a) => s + a.value_usd, 0),
+          assetBalance: asset?.balance || 0,
+          assetValueUSD: asset?.value_usd || 0,
+        },
+        coinbase_preview: preview,
+        preview_error: previewError,
+      });
     }
 
     // Place order
