@@ -43,6 +43,7 @@ const statusHandler = require('./api/trading/status.js');
 const executeHandler = require('./api/trading/execute.js');
 const positionsHandler = require('./api/trading/positions.js');
 const testConnectionHandler = require('./api/trading/test-connection.js');
+const testOrderHandler = require('./api/trading/test-order.js');
 const dailyTradeHandler = require('./api/cron/daily-trade.js');
 const emailReportHandler = require('./api/email/daily-report.js');
 
@@ -132,6 +133,7 @@ app.get('/api/trading/status', wrapHandler(statusHandler));
 app.post('/api/trading/execute', wrapHandler(executeHandler));
 app.all('/api/trading/positions', wrapHandler(positionsHandler));
 app.get('/api/trading/test-connection', wrapHandler(testConnectionHandler));
+app.post('/api/trading/test-order', wrapHandler(testOrderHandler));
 
 // Cron route
 app.all('/api/cron/daily-trade', wrapHandler(dailyTradeHandler));
