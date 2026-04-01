@@ -136,7 +136,8 @@ export default function Trading() {
     const data = await res.json();
 
     if (data.success) {
-      alert(`Trade executed: ${data.message}`);
+      const warn = data.db_warnings?.length ? `\n\n⚠️ DB warning (order succeeded): ${data.db_warnings.join('; ')}` : '';
+      alert(`Trade executed: ${data.message}${warn}`);
       // Refresh positions/trade-history, signals (with 4h cooldown filter), and cost-basis
       await Promise.all([fetchStatus(), fetchSignals(), ...(isSell ? [fetchCostBasis()] : [])]);
     } else {

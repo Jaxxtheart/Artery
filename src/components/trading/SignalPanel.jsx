@@ -236,8 +236,9 @@ export default function SignalPanel({ signals = [], openPositions = [], liveAsse
   const holds = validSignals.filter(s => s.signal === 'HOLD');
 
   // Split into strategy (BTC/ETH/SOL/AVAX/LINK) vs portfolio cleanup (held legacy coins)
-  const strategySignals = validSignals.filter(s => s.strategy_signal);
-  const cleanupSignals  = validSignals.filter(s => !s.strategy_signal && s.held);
+  // strategy_signal flag set by new API; if absent (legacy format), treat as strategy
+  const strategySignals = validSignals.filter(s => s.strategy_signal !== false);
+  const cleanupSignals  = validSignals.filter(s => s.strategy_signal === false && s.held);
   const cleanupActionable = cleanupSignals.filter(s => s.signal !== 'HOLD');
 
   return (

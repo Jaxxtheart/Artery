@@ -136,89 +136,102 @@ module.exports = async function handler(req, res) {
     // Calculate stop levels (BUY positions only)
     const { stopLoss, takeProfit } = calculateStopLevels(currentPrice, side);
 
-    // Save to database
+    // Save to database — wrapped so DB failures can't mask a successful order
+    const dbWarnings = [];
     if (supabase) {
-      if (isBuy) {
-        await supabase.from('positions').insert({
-          symbol,
-          side: 'BUY',
-          entry_price: currentPrice,
-          size: orderSize / currentPrice,
-          strategy,
-          stop_loss: stopLoss,
-          take_profit: takeProfit,
-          status: 'OPEN',
-          coinbase_order_id: orderId
-        });
-      } else {
-        // Try to close a bot-opened position first
-        const { data: openPos } = await supabase
-          .from('positions')
-          .select('*')
-          .eq('symbol', symbol)
-          .eq('status', 'OPEN')
-          .limit(1)
-          .single();
-
-        const now = new Date().toISOString();
-
-        if (openPos) {
-          // Bot-tracked position — close it and record P&L
-          const pnlUsd = (currentPrice - openPos.entry_price) * openPos.size;
-          const pnlPct = ((currentPrice - openPos.entry_price) / openPos.entry_price) * 100;
-          await supabase.from('positions').update({
-            status: 'CLOSED',
-            exit_price: currentPrice,
-            exit_time: now,
-            pnl_usd: pnlUsd,
-            pnl_pct: pnlPct
-          }).eq('id', openPos.id);
-          await supabase.from('trade_history').insert({
-            symbol, side: 'SELL', entry_price: openPos.entry_price, exit_price: currentPrice,
-            size: openPos.size, pnl_usd: pnlUsd, pnl_pct: pnlPct, strategy,
-            reason: reason || 'Manual sell', entry_time: openPos.entry_time,
-            exit_time: now,
-            duration_hours: (Date.now() - new Date(openPos.entry_time).getTime()) / 3600000
-          });
-        } else {
-          // Untracked holding (bought directly on Coinbase, not via bot)
-          // Still record the sale in trade_history using cost basis as entry price
-          const soldUnits = orderSize; // base_size units sold
-          const soldValueUsd = soldUnits * currentPrice;
-
-          // Try to get cost basis from Supabase manual entries or Coinbase breakdown
-          let costBasisPrice = null;
-          const { data: manualEntry } = await supabase
-            .from('holdings_cost_basis')
-            .select('total_spent')
-            .eq('currency', ticker)
-            .maybeSingle();
-          if (manualEntry?.total_spent && asset?.balance > 0) {
-            costBasisPrice = parseFloat(manualEntry.total_spent) / asset.balance;
-          }
-
-          const entryPrice = costBasisPrice || currentPrice; // fallback: zero P&L if no cost basis
-          const pnlUsd = (currentPrice - entryPrice) * soldUnits;
-          const pnlPct = ((currentPrice - entryPrice) / entryPrice) * 100;
-
-          await supabase.from('trade_history').insert({
-            symbol, side: 'SELL',
-            entry_price: entryPrice,
-            exit_price: currentPrice,
-            size: soldUnits,
-            pnl_usd: pnlUsd,
-            pnl_pct: pnlPct,
+      try {
+        if (isBuy) {
+          const { error: posErr } = await supabase.from('positions').insert({
+            symbol,
+            side: 'BUY',
+            entry_price: currentPrice,
+            size: orderSize / currentPrice,
             strategy,
-            reason: reason || 'Manual sell (untracked holding)',
-            entry_time: now,   // unknown — use now as placeholder
-            exit_time: now,
-            duration_hours: 0
+            stop_loss: stopLoss,
+            take_profit: takeProfit,
+            status: 'OPEN',
+            coinbase_order_id: orderId
           });
-        }
-      }
+          if (posErr) dbWarnings.push(`position insert: ${posErr.message}`);
+        } else {
+          const now = new Date().toISOString();
 
-      await supabase.from('signals').update({ executed: true })
-        .eq('symbol', symbol).eq('signal', side.toUpperCase()).eq('executed', false);
+          // Check for a bot-opened position to close
+          const { data: openPos } = await supabase
+            .from('positions')
+            .select('*')
+            .eq('symbol', symbol)
+            .eq('status', 'OPEN')
+            .limit(1)
+            .single();
+
+          if (openPos) {
+            // Bot-tracked position — close it and record P&L
+            const pnlUsd = (currentPrice - openPos.entry_price) * openPos.size;
+            const pnlPct = ((currentPrice - openPos.entry_price) / openPos.entry_price) * 100;
+            const { error: updErr } = await supabase.from('positions').update({
+              status: 'CLOSED',
+              exit_price: currentPrice,
+              exit_time: now,
+              pnl_usd: pnlUsd,
+              pnl_pct: pnlPct
+            }).eq('id', openPos.id);
+            if (updErr) dbWarnings.push(`position close: ${updErr.message}`);
+
+            const { error: histErr } = await supabase.from('trade_history').insert({
+              symbol, side: 'SELL', entry_price: openPos.entry_price, exit_price: currentPrice,
+              size: openPos.size, pnl_usd: pnlUsd, pnl_pct: pnlPct, strategy,
+              reason: reason || 'Manual sell', entry_time: openPos.entry_time,
+              exit_time: now,
+              duration_hours: (Date.now() - new Date(openPos.entry_time).getTime()) / 3600000
+            });
+            if (histErr) dbWarnings.push(`trade_history insert: ${histErr.message}`);
+          } else {
+            // Untracked holding — record in trade_history using stored cost basis
+            const soldUnits = orderSize;
+
+            let costBasisPrice = null;
+            try {
+              const { data: manualEntry } = await supabase
+                .from('holdings_cost_basis')
+                .select('total_spent')
+                .eq('currency', ticker)
+                .maybeSingle();
+              if (manualEntry?.total_spent && asset?.balance > 0) {
+                costBasisPrice = parseFloat(manualEntry.total_spent) / asset.balance;
+              }
+            } catch {
+              // holdings_cost_basis may not exist yet — safe to ignore
+            }
+
+            const entryPrice = costBasisPrice || currentPrice;
+            const pnlUsd = (currentPrice - entryPrice) * soldUnits;
+            const pnlPct = entryPrice > 0 ? ((currentPrice - entryPrice) / entryPrice) * 100 : 0;
+
+            const { error: histErr } = await supabase.from('trade_history').insert({
+              symbol, side: 'SELL',
+              entry_price: entryPrice,
+              exit_price: currentPrice,
+              size: soldUnits,
+              pnl_usd: pnlUsd,
+              pnl_pct: pnlPct,
+              strategy,
+              reason: reason || 'Manual sell (untracked holding)',
+              entry_time: now,
+              exit_time: now,
+              duration_hours: 0
+            });
+            if (histErr) dbWarnings.push(`trade_history insert: ${histErr.message}`);
+          }
+        }
+
+        await supabase.from('signals').update({ executed: true })
+          .eq('symbol', symbol).eq('signal', side.toUpperCase()).eq('executed', false);
+      } catch (dbError) {
+        // Log but don't fail — the Coinbase order already succeeded
+        console.error('DB error after successful order:', dbError.message);
+        dbWarnings.push(dbError.message);
+      }
     }
 
     const sizeLabel = isBuy
@@ -234,7 +247,8 @@ module.exports = async function handler(req, res) {
       price: currentPrice,
       stopLoss: isBuy ? stopLoss : null,
       takeProfit: isBuy ? takeProfit : null,
-      message: `${side} order placed for ${symbol}: ${sizeLabel}`
+      message: `${side} order placed for ${symbol}: ${sizeLabel}`,
+      ...(dbWarnings.length > 0 && { db_warnings: dbWarnings })
     });
   } catch (error) {
     console.error('Execute error:', error);
