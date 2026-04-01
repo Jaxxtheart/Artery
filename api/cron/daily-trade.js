@@ -12,6 +12,7 @@ const {
   calculatePositionSize,
   calculateStopLevels,
   checkRiskLimits,
+  shouldClosePosition,
   MIN_CONFIDENCE
 } = require('../../lib/trading/risk-manager');
 
@@ -43,26 +44,71 @@ module.exports = async function handler(req, res) {
     const cashBalance = portfolio.filter(a => a.type === 'cash').reduce((s, a) => s + a.value_usd, 0);
     log(`Portfolio: $${totalValue.toFixed(2)} total, $${cashBalance.toFixed(2)} cash`);
 
-    // 2. Load open positions (monitoring only — exits are manual)
+    // 2. Manage bot-opened positions (stop-loss / take-profit)
+    // Only positions tracked in Supabase (opened by the bot) are auto-managed.
+    // Legacy Coinbase holdings never appear here — they are always manual.
     let openPositions = [];
+    let closedThisCycle = 0;
     if (supabase) {
       const { data } = await supabase.from('positions').select('*').eq('status', 'OPEN');
       openPositions = data || [];
     }
 
-    // Log P&L status for existing positions without taking any action
     for (const position of openPositions) {
       try {
         const currentPrice = await coinbase.getProductPrice(position.symbol);
         const pnlUsd = (currentPrice - position.entry_price) * position.size;
         const pnlPct = ((currentPrice - position.entry_price) / position.entry_price) * 100;
-        log(`Position ${position.symbol}: ${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}% ($${pnlUsd.toFixed(2)}) — held, no auto-exit`);
+        const closeCheck = shouldClosePosition(position, currentPrice);
+
+        if (closeCheck.close) {
+          log(`Closing bot position ${position.symbol}: ${closeCheck.reason} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)`);
+
+          // Sell uses base_size (crypto units)
+          const productDetails = await coinbase.getProductDetails(position.symbol).catch(() => ({}));
+          const baseIncrement  = productDetails.base_increment || '0.00000001';
+          const decimals = (baseIncrement.toString().split('.')[1] || '').length;
+          const sellSize = parseFloat((position.size * 0.999).toFixed(decimals));
+
+          await coinbase.placeOrder(position.symbol, 'SELL', sellSize);
+
+          const durationHours = (Date.now() - new Date(position.entry_time).getTime()) / 3600000;
+          const now = new Date().toISOString();
+
+          if (supabase) {
+            await supabase.from('positions').update({
+              status: 'CLOSED',
+              exit_price: currentPrice,
+              exit_time: now,
+              pnl_usd: pnlUsd,
+              pnl_pct: pnlPct
+            }).eq('id', position.id);
+
+            await supabase.from('trade_history').insert({
+              symbol: position.symbol,
+              side: 'SELL',
+              entry_price: position.entry_price,
+              exit_price: currentPrice,
+              size: position.size,
+              pnl_usd: pnlUsd,
+              pnl_pct: pnlPct,
+              strategy: position.strategy,
+              reason: closeCheck.reason,
+              duration_hours: durationHours,
+              entry_time: position.entry_time,
+              exit_time: now
+            });
+          }
+          closedThisCycle++;
+        } else {
+          log(`Holding ${position.symbol}: ${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}% — stop $${position.stop_loss?.toFixed(4)}, target $${position.take_profit?.toFixed(4)}`);
+        }
       } catch (err) {
-        log(`Could not price ${position.symbol}: ${err.message}`);
+        log(`Error managing position ${position.symbol}: ${err.message}`);
       }
     }
 
-    const remainingPositions = openPositions.length; // no closures — all exits are manual
+    const remainingPositions = openPositions.length - closedThisCycle;
 
     // 3a. Build cooldown set — skip re-entry on symbols closed in the last 4 hours
     const COOLDOWN_HOURS = 4;
@@ -213,6 +259,7 @@ module.exports = async function handler(req, res) {
       signalsAnalyzed: signals.length,
       tradesExecuted: tradesExecuted.length,
       tradesDetail: tradesExecuted.map(t => ({ symbol: t.symbol, size: t.size, confidence: t.confidence })),
+      positionsClosed: closedThisCycle,
       cashBefore: cashBalance,
       cashAfter: cashRemaining,
       openPositions: remainingPositions + tradesExecuted.length,

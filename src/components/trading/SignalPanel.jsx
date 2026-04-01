@@ -37,28 +37,34 @@ function getActionContext(signal, openPositions = [], liveAssets = []) {
   const hasHolding = liveAssets.some(a => a.currency === ticker && a.balance > 0);
 
   if (signal.signal === 'BUY') {
-    if (signal.confidence >= 0.60) {
+    if (signal.confidence >= 0.80) {
       return {
-        text: 'Queued for auto-execution — the hourly bot will buy this using available USD cash if fewer than 4 positions are open.',
+        text: 'High conviction — bot will auto-buy this at the next hourly run using available USD cash (max 4 open positions).',
         color: '#16A34A',
       };
     }
+    if (signal.confidence >= 0.60) {
+      return {
+        text: `Confidence ${Math.round(signal.confidence * 100)}% — below the 80% auto-execute threshold. Bot is watching but will not trade yet.`,
+        color: '#D97706',
+      };
+    }
     return {
-      text: `Confidence is ${Math.round(signal.confidence * 100)}% — below the 60% minimum threshold. Bot is monitoring but will not execute.`,
-      color: '#D97706',
+      text: `Confidence ${Math.round(signal.confidence * 100)}% — too low. Bot is monitoring for a stronger setup.`,
+      color: '#C0C0C0',
     };
   }
 
   if (signal.signal === 'SELL') {
     if (hasTrackedPosition) {
       return {
-        text: 'Bot will auto-close this position at the next hourly run since it was opened by the bot.',
+        text: 'Bot-opened position — will auto-close at the next hourly run if stop-loss or take-profit is hit.',
         color: '#DC2626',
       };
     }
     if (hasHolding) {
       return {
-        text: `You hold ${ticker} but it wasn't opened by the bot — it won't sell automatically. Use Execute Sell to action this manually.`,
+        text: `You hold ${ticker} but it wasn't opened by the bot — use Execute Sell to close this manually.`,
         color: '#DC2626',
       };
     }
@@ -91,7 +97,7 @@ function SignalCard({ signal, openPositions, liveAssets, testResults, onExecute,
   const hasTrackedPosition = openPositions.some(p => p.symbol === signal.symbol && p.status === 'OPEN');
   const hasHolding = liveAssets.some(a => a.currency === ticker && a.balance > 0);
   const showExecute = onExecute && (
-    (signal.signal === 'BUY' && signal.confidence >= 0.60) ||
+    (signal.signal === 'BUY' && signal.confidence >= 0.80) ||
     (signal.signal === 'SELL' && (hasTrackedPosition || hasHolding))
   );
   const testKey = `${signal.symbol}-${signal.signal}`;
