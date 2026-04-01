@@ -26,9 +26,24 @@ module.exports = async function handler(req, res) {
       // Non-fatal — fall back to monitored list only
     }
 
-    const signals = await getAllSignals(coinbase, heldSymbols);
+    // Find symbols that were recently sold (4h cooldown) — suppress their signals
+    const cooldownSymbols = new Set();
+    if (supabase) {
+      const cutoff = new Date(Date.now() - 4 * 3600000).toISOString();
+      const { data: recentSells } = await supabase
+        .from('trade_history')
+        .select('symbol')
+        .eq('side', 'SELL')
+        .gte('exit_time', cutoff);
+      (recentSells || []).forEach(t => cooldownSymbols.add(t.symbol));
+    }
 
-    // Optionally persist signals to DB
+    const allSignals = await getAllSignals(coinbase, heldSymbols);
+
+    // Filter out signals for recently-sold symbols
+    const signals = allSignals.filter(s => !cooldownSymbols.has(s.symbol));
+
+    // Persist actionable signals to DB
     if (supabase) {
       const actionableSignals = signals.filter(s => s.signal !== 'HOLD');
       if (actionableSignals.length > 0) {
@@ -53,6 +68,7 @@ module.exports = async function handler(req, res) {
       signals,
       count: signals.length,
       actionable: signals.filter(s => s.signal !== 'HOLD').length,
+      suppressedSymbols: [...cooldownSymbols],
       generatedAt: new Date().toISOString()
     });
   } catch (error) {

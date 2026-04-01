@@ -120,14 +120,28 @@ export default function Trading() {
   async function handleExecuteTrade(signal) {
     const adminPassword = prompt('Enter admin password to execute trade:');
     if (!adminPassword) return;
+
+    const isSell = signal.signal === 'SELL';
+
+    // Optimistically remove SELL signal immediately so the UI feels instant
+    if (isSell) {
+      setSignals(prev => prev.filter(s => !(s.symbol === signal.symbol && s.signal === 'SELL')));
+    }
+
     const res = await fetch(`${API_BASE}/api/trading/execute`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminPassword}` },
       body: JSON.stringify({ ...signal, side: signal.signal })
     });
     const data = await res.json();
-    if (data.success) { alert(`Trade executed: ${data.message}`); await fetchStatus(); await fetchSignals(); }
-    else {
+
+    if (data.success) {
+      alert(`Trade executed: ${data.message}`);
+      // Refresh positions/trade-history, signals (with 4h cooldown filter), and cost-basis
+      await Promise.all([fetchStatus(), fetchSignals(), ...(isSell ? [fetchCostBasis()] : [])]);
+    } else {
+      // Restore the signal if the sell actually failed
+      if (isSell) await fetchSignals();
       const detail = data.details ? `\n\nCoinbase response:\n${JSON.stringify(data.details, null, 2)}` : '';
       alert(`Error: ${data.error}${detail}`);
     }
