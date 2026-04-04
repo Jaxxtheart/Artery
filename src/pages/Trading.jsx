@@ -9,6 +9,7 @@ import SignalPanel from '../components/trading/SignalPanel';
 import StrategyControls from '../components/trading/StrategyControls';
 import RiskMetrics from '../components/trading/RiskMetrics';
 import HoldingsAnalysis from '../components/trading/HoldingsAnalysis';
+import OnChainSignals from '../components/trading/OnChainSignals';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 const REFRESH_INTERVAL = 30000;
@@ -268,10 +269,13 @@ export default function Trading() {
             <RiskMetrics riskMetrics={status?.riskMetrics} snapshots={status?.snapshots || []} />
           </div>
 
-          {/* Row 4: Open Positions */}
+          {/* Row 4: On-Chain Signal Engine + Backtesting */}
+          <OnChainSignals />
+
+          {/* Row 5: Open Positions */}
           <OpenPositions positions={status?.openPositions || []} onClosePosition={handleClosePosition} />
 
-          {/* Row 5: Trade History + Strategy Performance */}
+          {/* Row 6: Trade History + Strategy Performance */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
               <TradeHistory trades={status?.recentTrades || []} />

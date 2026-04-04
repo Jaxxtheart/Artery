@@ -46,6 +46,7 @@ const testConnectionHandler = require('./api/trading/test-connection.js');
 const testOrderHandler = require('./api/trading/test-order.js');
 const dailyTradeHandler = require('./api/cron/daily-trade.js');
 const emailReportHandler = require('./api/email/daily-report.js');
+const onchainSignalsHandler = require('./api/trading/onchain-signals.js');
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -134,6 +135,7 @@ app.post('/api/trading/execute', wrapHandler(executeHandler));
 app.all('/api/trading/positions', wrapHandler(positionsHandler));
 app.get('/api/trading/test-connection', wrapHandler(testConnectionHandler));
 app.post('/api/trading/test-order', wrapHandler(testOrderHandler));
+app.get('/api/trading/onchain-signals', wrapHandler(onchainSignalsHandler));
 
 // Cron route
 app.all('/api/cron/daily-trade', wrapHandler(dailyTradeHandler));
