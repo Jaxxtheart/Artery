@@ -27,7 +27,7 @@ CRYPTOQUANT_API_KEY  = os.environ.get("CRYPTOQUANT_API_KEY", "")
 DUNE_API_KEY         = os.environ.get("DUNE_API_KEY", "")
 
 # ── Strategy assets ───────────────────────────────────────────────────────────
-ASSETS = ["BTC", "ETH"]
+ASSETS = ["BTC", "ETH", "SOL", "AVAX", "LINK"]
 
 # ── Signal decay windows (hours) ─────────────────────────────────────────────
 SIGNAL_DECAY = {
