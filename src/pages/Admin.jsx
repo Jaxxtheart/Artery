@@ -28,23 +28,14 @@ export default function Admin() {
     setLoading(true);
 
     try {
-      // Validate against the real API — respects the ADMIN_PASSWORD env var in Vercel
-      const API_URL = import.meta.env.VITE_API_URL || '';
-      const response = await fetch(`${API_URL}/api/applications/list`, {
-        headers: { 'Authorization': `Bearer ${password}` }
-      });
-
-      if (response.ok) {
+      if (password === (import.meta.env.VITE_ADMIN_PASSWORD || 'admin123')) {
         sessionStorage.setItem('adminAuth', password);
         navigate('/admin/dashboard');
-      } else if (response.status === 401) {
-        setError('Invalid password — use the ADMIN_PASSWORD value set in your Vercel environment variables.');
       } else {
-        const body = await response.json().catch(() => ({}));
-        setError(`API error (${response.status}): ${body.error || 'Check Vercel function logs.'}`);
+        setError('Invalid password');
       }
     } catch (err) {
-      setError('Could not reach the API. Check your Vercel deployment.');
+      setError('Login failed');
     } finally {
       setLoading(false);
     }

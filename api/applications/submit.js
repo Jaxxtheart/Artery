@@ -13,8 +13,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const ScoringEngine = require('../scoringEngine.cjs');
-const { saveApplication } = require('../lib/supabase');
-const { sendApplicationEmails } = require('../lib/email-service');
+const { saveApplication } = require('../../lib/supabase');
+const { sendApplicationEmails } = require('../../lib/email-service');
 
 // Configure multer for memory storage (Vercel doesn't have persistent file system)
 const storage = multer.memoryStorage();
