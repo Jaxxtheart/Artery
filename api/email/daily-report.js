@@ -8,12 +8,15 @@ const { supabase } = require('../../lib/supabase');
 const { createCoinbaseClient } = require('../../lib/coinbase/client');
 
 module.exports = async function handler(req, res) {
-  if (req.method !== 'POST') {
+  if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const auth = req.headers.authorization;
-  if (auth !== `Bearer ${process.env.CRON_SECRET}` && auth !== `Bearer ${process.env.ADMIN_PASSWORD}`) {
+  const queryKey = req.query && req.query.key;
+  const validBearer = auth === `Bearer ${process.env.CRON_SECRET}` || auth === `Bearer ${process.env.ADMIN_PASSWORD}`;
+  const validQuery = queryKey === process.env.CRON_SECRET || queryKey === process.env.ADMIN_PASSWORD;
+  if (!validBearer && !validQuery) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

@@ -108,7 +108,7 @@ export default function Home() {
       <section className="contact" id="contact">
         <h2>Partner with Artery Capital</h2>
         <p>Join us in backing Africa's most promising founders. Co-invest in our fund and be part of the next generation of innovation.</p>
-        <a href="mailto:invest@arterycapital.com" className="contact-email">invest@arterycapital.com</a>
+        <a href="mailto:invest@arterycapital.co.za" className="contact-email">invest@arterycapital.co.za</a>
       </section>
 
       <footer>

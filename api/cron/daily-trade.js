@@ -1,11 +1,12 @@
 /**
  * GET /api/cron/daily-trade
- * Automated daily trading execution - triggered by Vercel Cron at 22:00 UTC
+ * Automated trading execution - triggered by Vercel Cron every hour (0 * * * *)
+ * Daily report email is only sent at 22:00 UTC
  * Also manually triggerable with proper authorization
  */
 
 const { createCoinbaseClient } = require('../../lib/coinbase/client');
-const { getAllSignals } = require('../../lib/trading/strategies');
+const { getAllSignals, STRATEGY_SYMBOLS } = require('../../lib/trading/strategies');
 const { supabase } = require('../../lib/supabase');
 const {
   calculatePositionSize,
@@ -43,9 +44,11 @@ module.exports = async function handler(req, res) {
     const cashBalance = portfolio.filter(a => a.type === 'cash').reduce((s, a) => s + a.value_usd, 0);
     log(`Portfolio: $${totalValue.toFixed(2)} total, $${cashBalance.toFixed(2)} cash`);
 
-    // 2. Check existing open positions for stops/targets
+    // 2. Manage bot-opened positions (stop-loss / take-profit)
+    // Only positions tracked in Supabase (opened by the bot) are auto-managed.
+    // Legacy Coinbase holdings never appear here — they are always manual.
     let openPositions = [];
-    let closedToday = 0;
+    let closedThisCycle = 0;
     if (supabase) {
       const { data } = await supabase.from('positions').select('*').eq('status', 'OPEN');
       openPositions = data || [];
@@ -54,31 +57,36 @@ module.exports = async function handler(req, res) {
     for (const position of openPositions) {
       try {
         const currentPrice = await coinbase.getProductPrice(position.symbol);
+        const pnlUsd = (currentPrice - position.entry_price) * position.size;
+        const pnlPct = ((currentPrice - position.entry_price) / position.entry_price) * 100;
         const closeCheck = shouldClosePosition(position, currentPrice);
 
         if (closeCheck.close) {
-          log(`Closing ${position.symbol}: ${closeCheck.reason}`);
+          log(`Closing bot position ${position.symbol}: ${closeCheck.reason} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)`);
 
-          const closeSide = position.side === 'BUY' ? 'SELL' : 'BUY';
-          const sizeUSD = position.size * currentPrice;
-          await coinbase.placeOrder(position.symbol, closeSide, sizeUSD);
+          // Sell uses base_size (crypto units)
+          const productDetails = await coinbase.getProductDetails(position.symbol).catch(() => ({}));
+          const baseIncrement  = productDetails.base_increment || '0.00000001';
+          const decimals = (baseIncrement.toString().split('.')[1] || '').length;
+          const sellSize = parseFloat((position.size * 0.999).toFixed(decimals));
 
-          const pnlUsd = (currentPrice - position.entry_price) * position.size;
-          const pnlPct = ((currentPrice - position.entry_price) / position.entry_price) * 100;
+          await coinbase.placeOrder(position.symbol, 'SELL', sellSize);
+
           const durationHours = (Date.now() - new Date(position.entry_time).getTime()) / 3600000;
+          const now = new Date().toISOString();
 
           if (supabase) {
             await supabase.from('positions').update({
               status: 'CLOSED',
               exit_price: currentPrice,
-              exit_time: new Date().toISOString(),
+              exit_time: now,
               pnl_usd: pnlUsd,
               pnl_pct: pnlPct
             }).eq('id', position.id);
 
             await supabase.from('trade_history').insert({
               symbol: position.symbol,
-              side: position.side,
+              side: 'SELL',
               entry_price: position.entry_price,
               exit_price: currentPrice,
               size: position.size,
@@ -88,18 +96,34 @@ module.exports = async function handler(req, res) {
               reason: closeCheck.reason,
               duration_hours: durationHours,
               entry_time: position.entry_time,
-              exit_time: new Date().toISOString()
+              exit_time: now
             });
           }
-          closedToday++;
+          closedThisCycle++;
+        } else {
+          log(`Holding ${position.symbol}: ${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}% — stop $${position.stop_loss?.toFixed(4)}, target $${position.take_profit?.toFixed(4)}`);
         }
       } catch (err) {
-        log(`Error processing position ${position.symbol}: ${err.message}`);
+        log(`Error managing position ${position.symbol}: ${err.message}`);
       }
     }
 
-    // Refresh open positions count after closures
-    const remainingPositions = openPositions.length - closedToday;
+    const remainingPositions = openPositions.length - closedThisCycle;
+
+    // 3a. Build cooldown set — skip re-entry on symbols closed in the last 4 hours
+    const COOLDOWN_HOURS = 4;
+    const cooldownSymbols = new Set();
+    if (supabase) {
+      const cutoff = new Date(Date.now() - COOLDOWN_HOURS * 3600000).toISOString();
+      const { data: recentlyClosed } = await supabase
+        .from('trade_history')
+        .select('symbol')
+        .gte('exit_time', cutoff);
+      (recentlyClosed || []).forEach(t => cooldownSymbols.add(t.symbol));
+      if (cooldownSymbols.size > 0) {
+        log(`Cooldown (${COOLDOWN_HOURS}h): skipping re-entry on ${[...cooldownSymbols].join(', ')}`);
+      }
+    }
 
     // 3. Check risk limits
     const riskCheck = checkRiskLimits({
@@ -113,9 +137,9 @@ module.exports = async function handler(req, res) {
       log(`Risk check failed: ${riskCheck.reason}`);
     }
 
-    // 4. Generate trading signals
+    // 4. Generate trading signals — strategy coins only (no held legacy coins)
     log('Generating trading signals...');
-    const signals = await getAllSignals(coinbase);
+    const signals = await getAllSignals(coinbase);   // no heldSymbols → MONITORED_SYMBOLS only
 
     if (supabase) {
       const inserts = signals.filter(s => s.signal !== 'HOLD' && s.confidence > 0.5);
@@ -128,25 +152,41 @@ module.exports = async function handler(req, res) {
 
     log(`Generated ${signals.length} signals, ${signals.filter(s => s.signal === 'BUY').length} buys`);
 
-    // 5. Execute top buy signals
+    // 5. Execute top buy signals — strategy coins only, funded from cash on hand
     const tradesExecuted = [];
+    let cashRemaining = cashBalance; // track cash as we deploy it
+
     if (riskCheck.allowed) {
       const buySignals = signals
-        .filter(s => s.signal === 'BUY' && s.confidence >= MIN_CONFIDENCE)
+        .filter(s =>
+          s.signal === 'BUY' &&
+          s.confidence >= MIN_CONFIDENCE &&
+          STRATEGY_SYMBOLS.has(s.symbol) &&           // only BTC/ETH/SOL/AVAX/LINK
+          !cooldownSymbols.has(s.symbol)
+        )
         .slice(0, 3);
 
+      log(`Eligible buy signals: ${buySignals.map(s => `${s.symbol}(${(s.confidence*100).toFixed(0)}%)`).join(', ') || 'none'}`);
+
       for (const signal of buySignals) {
-        if (remainingPositions + tradesExecuted.length >= 4) break;
+        if (remainingPositions + tradesExecuted.length >= 4) {
+          log('Max 4 open positions reached — no more buys this cycle');
+          break;
+        }
 
         try {
           const positionSize = calculatePositionSize(totalValue, signal.confidence, remainingPositions + tradesExecuted.length);
 
-          if (positionSize < 10 || cashBalance - (tradesExecuted.reduce((s, t) => s + t.size, 0)) < positionSize) {
-            log(`Skipping ${signal.symbol}: insufficient funds or position size too small`);
+          if (positionSize < 10) {
+            log(`Skipping ${signal.symbol}: position size $${positionSize.toFixed(2)} too small`);
+            continue;
+          }
+          if (cashRemaining < positionSize) {
+            log(`Skipping ${signal.symbol}: only $${cashRemaining.toFixed(2)} cash available, need $${positionSize.toFixed(2)}`);
             continue;
           }
 
-          log(`Executing BUY ${signal.symbol}: $${positionSize.toFixed(2)} (confidence: ${(signal.confidence * 100).toFixed(0)}%)`);
+          log(`Executing BUY ${signal.symbol}: $${positionSize.toFixed(2)} from $${cashRemaining.toFixed(2)} cash (confidence: ${(signal.confidence * 100).toFixed(0)}%)`);
           const order = await coinbase.placeOrder(signal.symbol, 'BUY', positionSize);
           const orderId = order.success_response?.order_id || order.order_id;
 
@@ -170,7 +210,9 @@ module.exports = async function handler(req, res) {
               .eq('symbol', signal.symbol).eq('signal', 'BUY').eq('executed', false);
           }
 
+          cashRemaining -= positionSize;
           tradesExecuted.push({ ...signal, size: positionSize, orderId });
+          log(`Cash remaining after trade: $${cashRemaining.toFixed(2)}`);
         } catch (err) {
           log(`Error executing trade for ${signal.symbol}: ${err.message}`);
         }
@@ -194,26 +236,33 @@ module.exports = async function handler(req, res) {
       }, { onConflict: 'snapshot_date' });
     }
 
-    // 7. Send daily report email
-    try {
-      const { sendDailyTradingReport } = require('../../lib/trading-email-templates');
-      await sendDailyTradingReport({
-        portfolio: { totalValue, cashBalance },
-        signals,
-        executedTrades: tradesExecuted,
-        closedPositions: closedToday,
-        log: executionLog
-      });
-      log('Daily report email sent');
-    } catch (emailErr) {
-      log(`Email error: ${emailErr.message}`);
+    // 7. Send daily report email (once per day at 22:00 UTC)
+    const currentHour = new Date().getUTCHours();
+    if (currentHour === 22) {
+      try {
+        const { sendDailyTradingReport } = require('../../lib/trading-email-templates');
+        await sendDailyTradingReport({
+          portfolio: { totalValue, cashBalance },
+          signals,
+          executedTrades: tradesExecuted,
+          closedPositions: closedThisCycle,
+          log: executionLog
+        });
+        log('Daily report email sent');
+      } catch (emailErr) {
+        log(`Email error: ${emailErr.message}`);
+      }
     }
 
     return res.status(200).json({
       success: true,
       signalsAnalyzed: signals.length,
       tradesExecuted: tradesExecuted.length,
-      positionsClosed: closedToday,
+      tradesDetail: tradesExecuted.map(t => ({ symbol: t.symbol, size: t.size, confidence: t.confidence })),
+      positionsClosed: closedThisCycle,
+      cashBefore: cashBalance,
+      cashAfter: cashRemaining,
+      openPositions: remainingPositions + tradesExecuted.length,
       portfolioValue: totalValue,
       log: executionLog
     });

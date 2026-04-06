@@ -1,4 +1,7 @@
-import { RefreshCw, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { useState } from 'react';
+import { RefreshCw, TrendingUp, TrendingDown, Minus, Wallet, FlaskConical } from 'lucide-react';
+
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 function SignalBadge({ signal }) {
   const config = {
@@ -28,10 +31,221 @@ function ConfidenceBar({ value }) {
   );
 }
 
-export default function SignalPanel({ signals = [], onRefresh, onExecute, isRefreshing }) {
+function getActionContext(signal, openPositions = [], liveAssets = []) {
+  const ticker = signal.symbol.replace('-USD', '');
+  const hasTrackedPosition = openPositions.some(p => p.symbol === signal.symbol && p.status === 'OPEN');
+  const hasHolding = liveAssets.some(a => a.currency === ticker && a.balance > 0);
+
+  if (signal.signal === 'BUY') {
+    if (signal.confidence >= 0.80) {
+      return {
+        text: 'High conviction — bot will auto-buy this at the next hourly run using available USD cash (max 4 open positions).',
+        color: '#16A34A',
+      };
+    }
+    if (signal.confidence >= 0.60) {
+      return {
+        text: `Confidence ${Math.round(signal.confidence * 100)}% — below the 80% auto-execute threshold. Bot is watching but will not trade yet.`,
+        color: '#D97706',
+      };
+    }
+    return {
+      text: `Confidence ${Math.round(signal.confidence * 100)}% — too low. Bot is monitoring for a stronger setup.`,
+      color: '#C0C0C0',
+    };
+  }
+
+  if (signal.signal === 'SELL') {
+    if (hasTrackedPosition) {
+      return {
+        text: 'Bot-opened position — will auto-close at the next hourly run if stop-loss or take-profit is hit.',
+        color: '#DC2626',
+      };
+    }
+    if (hasHolding) {
+      return {
+        text: `You hold ${ticker} but it wasn't opened by the bot — use Execute Sell to close this manually.`,
+        color: '#DC2626',
+      };
+    }
+    return {
+      text: `Market signal only — you don't hold ${ticker} so this cannot be executed.`,
+      color: '#A0A0A0',
+    };
+  }
+
+  return {
+    text: 'No entry conditions met yet — bot is monitoring for alignment.',
+    color: '#A0A0A0',
+  };
+}
+
+function SectionDivider({ label, color }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, marginBottom: 2 }}>
+      <span style={{ fontSize: 10, fontWeight: 700, color, letterSpacing: '0.6px', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+        {label}
+      </span>
+      <div style={{ flex: 1, height: 1, background: '#EBEBEA' }} />
+    </div>
+  );
+}
+
+function SignalCard({ signal, openPositions, liveAssets, testResults, onExecute, runTest, fmt }) {
+  const ticker = signal.symbol.replace('-USD', '');
+  const context = getActionContext(signal, openPositions, liveAssets);
+  const hasTrackedPosition = openPositions.some(p => p.symbol === signal.symbol && p.status === 'OPEN');
+  const hasHolding = liveAssets.some(a => a.currency === ticker && a.balance > 0);
+  const showExecute = onExecute && (
+    (signal.signal === 'BUY' && signal.confidence >= 0.80) ||
+    (signal.signal === 'SELL' && (hasTrackedPosition || hasHolding))
+  );
+  const testKey = `${signal.symbol}-${signal.signal}`;
+  const test = testResults[testKey];
+
+  return (
+    <div style={{
+      border: `1px solid ${signal.signal === 'BUY' ? 'rgba(22,163,74,0.15)' : signal.signal === 'SELL' ? 'rgba(220,38,38,0.15)' : '#EBEBEA'}`,
+      background: signal.signal === 'BUY' ? 'rgba(22,163,74,0.03)' : signal.signal === 'SELL' ? 'rgba(220,38,38,0.03)' : '#FAFAF9',
+      borderRadius: 10, padding: '12px 14px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#1A1A1A' }}>{signal.symbol}</span>
+          <SignalBadge signal={signal.signal} />
+          <span style={{ fontSize: 10, color: '#A0A0A0', background: '#F5F5F4', padding: '2px 6px', borderRadius: 4 }}>
+            {signal.strategy?.replace('_', ' ')}
+          </span>
+          {signal.held && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 600, color: '#D97706', background: 'rgba(217,119,6,0.08)', padding: '2px 6px', borderRadius: 4 }}>
+              <Wallet size={9} />
+              HELD
+            </span>
+          )}
+        </div>
+        <div style={{ fontSize: 13, color: '#4A4A4A' }}>{signal.price > 0 ? fmt(signal.price) : '—'}</div>
+      </div>
+
+      <ConfidenceBar value={signal.confidence} />
+
+      <div style={{ fontSize: 11, color: '#8A8A8A', marginTop: 6, lineHeight: 1.5 }}>{signal.reason}</div>
+
+      <div style={{
+        marginTop: 8, padding: '7px 10px', borderRadius: 6,
+        background: signal.signal === 'HOLD' ? '#F5F5F4' : `${context.color}12`,
+        borderLeft: `2px solid ${context.color}`,
+        fontSize: 11, color: context.color, lineHeight: 1.5,
+      }}>
+        {context.text}
+      </div>
+
+      {showExecute && (() => {
+        const isBuy = signal.signal === 'BUY';
+        const activeColor    = isBuy ? '#16A34A' : '#DC2626';
+        const activeBg       = isBuy ? 'rgba(22,163,74,0.06)' : 'rgba(220,38,38,0.06)';
+        const activeBgHover  = isBuy ? 'rgba(22,163,74,0.12)' : 'rgba(220,38,38,0.12)';
+        const activeBorder   = isBuy ? 'rgba(22,163,74,0.2)' : 'rgba(220,38,38,0.2)';
+        return (
+          <>
+            {test && !test.loading && test.data && (
+              <div style={{ marginTop: 10, borderRadius: 6, border: `1px solid ${test.data.would_succeed ? 'rgba(22,163,74,0.2)' : 'rgba(220,38,38,0.2)'}`, background: test.data.would_succeed ? 'rgba(22,163,74,0.04)' : 'rgba(220,38,38,0.04)', padding: '10px 12px', fontSize: 11 }}>
+                <div style={{ fontWeight: 600, color: test.data.would_succeed ? '#16A34A' : '#DC2626', marginBottom: 6 }}>
+                  {test.data.would_succeed ? '✓ Order would succeed' : '✗ Order would fail'}
+                </div>
+                {test.data.order_params && (
+                  <div style={{ color: '#6A6A6A', marginBottom: 4 }}>
+                    Size: <strong>{test.data.order_params.orderSizeLabel}</strong> via <strong>{test.data.order_params.size_field}</strong> @ {test.data.order_params.currentPrice ? `$${test.data.order_params.currentPrice}` : '—'}
+                  </div>
+                )}
+                {test.data.preview_error && (
+                  <div style={{ color: '#DC2626', wordBreak: 'break-all', marginTop: 4 }}>Coinbase: {test.data.preview_error}</div>
+                )}
+                {test.data.coinbase_preview && (
+                  <details style={{ marginTop: 6 }}>
+                    <summary style={{ cursor: 'pointer', color: '#A0A0A0' }}>Coinbase preview response</summary>
+                    <pre style={{ fontSize: 10, marginTop: 4, whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: '#6A6A6A' }}>
+                      {JSON.stringify(test.data.coinbase_preview, null, 2)}
+                    </pre>
+                  </details>
+                )}
+                {test.data.error && !test.data.would_succeed && (
+                  <div style={{ color: '#DC2626', wordBreak: 'break-all' }}>{test.data.error}</div>
+                )}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <button
+                onClick={() => runTest(signal)}
+                disabled={test?.loading}
+                style={{ flex: 1, fontSize: 12, fontWeight: 500, padding: '7px 0', borderRadius: 6, background: 'transparent', color: '#6A6A6A', border: '1px solid #E0E0DE', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
+                onMouseEnter={e => e.currentTarget.style.background = '#F5F5F4'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <FlaskConical size={11} />
+                {test?.loading ? 'Testing…' : 'Test Order'}
+              </button>
+              <button
+                onClick={() => onExecute(signal)}
+                style={{ flex: 2, fontSize: 12, fontWeight: 500, padding: '7px 0', borderRadius: 6, background: activeBg, color: activeColor, border: `1px solid ${activeBorder}`, cursor: 'pointer', transition: 'background 0.2s' }}
+                onMouseEnter={e => e.currentTarget.style.background = activeBgHover}
+                onMouseLeave={e => e.currentTarget.style.background = activeBg}
+              >
+                {isBuy ? 'Execute Buy' : 'Execute Sell'}
+              </button>
+            </div>
+          </>
+        );
+      })()}
+    </div>
+  );
+}
+
+export default function SignalPanel({ signals = [], openPositions = [], liveAssets = [], onRefresh, onExecute, isRefreshing }) {
   const fmt = (v) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(v);
-  const actionable = signals.filter(s => s.signal !== 'HOLD');
-  const holds = signals.filter(s => s.signal === 'HOLD');
+
+  const [testResults, setTestResults] = useState({});   // { [symbol-side]: { loading, data } }
+  const [adminPw, setAdminPw] = useState(null);
+
+  async function runTest(signal) {
+    const key = `${signal.symbol}-${signal.signal}`;
+    let pw = adminPw;
+    if (!pw) {
+      pw = prompt('Enter admin password to run test:');
+      if (!pw) return;
+      setAdminPw(pw);
+    }
+    setTestResults(prev => ({ ...prev, [key]: { loading: true, data: null } }));
+    try {
+      const res = await fetch(`${API_BASE}/api/trading/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pw}` },
+        body: JSON.stringify({ symbol: signal.symbol, side: signal.signal, strategy: signal.strategy, confidence: signal.confidence, dry_run: true }),
+      });
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { success: false, would_succeed: false, error: `Server returned non-JSON (HTTP ${res.status}): ${text.slice(0, 300)}` };
+      }
+      setTestResults(prev => ({ ...prev, [key]: { loading: false, data } }));
+    } catch (e) {
+      setTestResults(prev => ({ ...prev, [key]: { loading: false, data: { success: false, error: e.message } } }));
+    }
+  }
+  const errorSignals = signals.filter(s => s.strategy === 'ERROR');
+  const hasApiError = errorSignals.length > 0 && errorSignals.length === signals.length;
+  const apiErrorMsg = hasApiError ? errorSignals[0]?.reason : null;
+  const validSignals = hasApiError ? [] : signals;
+  const actionable = validSignals.filter(s => s.signal !== 'HOLD');
+  const holds = validSignals.filter(s => s.signal === 'HOLD');
+
+  // Split into strategy (BTC/ETH/SOL/AVAX/LINK) vs portfolio cleanup (held legacy coins)
+  // strategy_signal flag set by new API; if absent (legacy format), treat as strategy
+  const strategySignals = validSignals.filter(s => s.strategy_signal !== false);
+  const cleanupSignals  = validSignals.filter(s => s.strategy_signal === false && s.held);
+  const cleanupActionable = cleanupSignals.filter(s => s.signal !== 'HOLD');
 
   return (
     <div style={{ background: '#fff', border: '1px solid #EBEBEA', borderRadius: 12, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
@@ -42,6 +256,9 @@ export default function SignalPanel({ signals = [], onRefresh, onExecute, isRefr
           </h2>
           <p style={{ fontSize: 11, color: '#C0C0C0', margin: '4px 0 0' }}>
             {actionable.length} actionable · {holds.length} monitoring
+            {cleanupActionable.length > 0 && (
+              <span style={{ color: '#D97706', marginLeft: 6 }}>· {cleanupActionable.length} portfolio cleanup</span>
+            )}
           </p>
         </div>
         <button
@@ -56,49 +273,51 @@ export default function SignalPanel({ signals = [], onRefresh, onExecute, isRefr
         </button>
       </div>
 
-      {signals.length === 0 ? (
+      {hasApiError ? (
+        <div style={{ background: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: 8, padding: '14px 16px' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#92400E', marginBottom: 4 }}>Coinbase API not connected</div>
+          <div style={{ fontSize: 11, color: '#92400E', lineHeight: 1.5 }}>
+            {apiErrorMsg?.includes('401')
+              ? 'Invalid API credentials. Add COINBASE_API_KEY and COINBASE_API_SECRET to your Vercel environment variables.'
+              : apiErrorMsg}
+          </div>
+        </div>
+      ) : validSignals.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: '#C0C0C0', fontSize: 13 }}>
           Click refresh to generate signals
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {signals.map((signal, idx) => (
-            <div key={`${signal.symbol}-${signal.strategy}-${idx}`} style={{
-              border: `1px solid ${signal.signal === 'BUY' ? 'rgba(22,163,74,0.15)' : signal.signal === 'SELL' ? 'rgba(220,38,38,0.15)' : '#EBEBEA'}`,
-              background: signal.signal === 'BUY' ? 'rgba(22,163,74,0.03)' : signal.signal === 'SELL' ? 'rgba(220,38,38,0.03)' : '#FAFAF9',
-              borderRadius: 10, padding: '12px 14px',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#1A1A1A' }}>{signal.symbol}</span>
-                  <SignalBadge signal={signal.signal} />
-                  <span style={{ fontSize: 10, color: '#A0A0A0', background: '#F5F5F4', padding: '2px 6px', borderRadius: 4 }}>
-                    {signal.strategy?.replace('_', ' ')}
-                  </span>
-                </div>
-                <div style={{ fontSize: 13, color: '#4A4A4A' }}>{signal.price > 0 ? fmt(signal.price) : '—'}</div>
-              </div>
+          {/* ── Strategy signals ── */}
+          {strategySignals.length > 0 && (
+            <>
+              <SectionDivider label="Strategy" color="#FF5A5F" />
+              {strategySignals.map((signal, idx) => (
+                <SignalCard key={`s-${signal.symbol}-${signal.strategy}-${idx}`}
+                  signal={signal} openPositions={openPositions} liveAssets={liveAssets}
+                  testResults={testResults} onExecute={onExecute} runTest={runTest} fmt={fmt} />
+              ))}
+            </>
+          )}
 
-              <ConfidenceBar value={signal.confidence} />
+          {/* ── Portfolio cleanup signals ── */}
+          {cleanupSignals.length > 0 && (
+            <>
+              <SectionDivider label="Portfolio Cleanup" color="#D97706" />
+              {cleanupSignals.map((signal, idx) => (
+                <SignalCard key={`c-${signal.symbol}-${signal.strategy}-${idx}`}
+                  signal={signal} openPositions={openPositions} liveAssets={liveAssets}
+                  testResults={testResults} onExecute={onExecute} runTest={runTest} fmt={fmt} />
+              ))}
+            </>
+          )}
 
-              <div style={{ fontSize: 11, color: '#8A8A8A', marginTop: 6, lineHeight: 1.5 }}>{signal.reason}</div>
-
-              {signal.signal === 'BUY' && signal.confidence >= 0.60 && onExecute && (
-                <button
-                  onClick={() => onExecute(signal)}
-                  style={{
-                    marginTop: 10, width: '100%', fontSize: 12, fontWeight: 500, padding: '7px 0',
-                    borderRadius: 6, background: 'rgba(22,163,74,0.06)', color: '#16A34A',
-                    border: '1px solid rgba(22,163,74,0.2)', cursor: 'pointer', transition: 'background 0.2s',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(22,163,74,0.12)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(22,163,74,0.06)'}
-                >
-                  Execute Trade
-                </button>
-              )}
+          {/* ── No signals state ── */}
+          {strategySignals.length === 0 && cleanupSignals.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '24px 0', color: '#C0C0C0', fontSize: 13 }}>
+              No signals generated — click refresh
             </div>
-          ))}
+          )}
         </div>
       )}
     </div>

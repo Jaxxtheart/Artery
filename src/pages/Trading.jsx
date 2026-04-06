@@ -8,6 +8,8 @@ import LiveChart from '../components/trading/LiveChart';
 import SignalPanel from '../components/trading/SignalPanel';
 import StrategyControls from '../components/trading/StrategyControls';
 import RiskMetrics from '../components/trading/RiskMetrics';
+import HoldingsAnalysis from '../components/trading/HoldingsAnalysis';
+import OnChainSignals from '../components/trading/OnChainSignals';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 const REFRESH_INTERVAL = 30000;
@@ -44,7 +46,9 @@ function ArteryLogo() {
 export default function Trading() {
   const [status, setStatus] = useState(null);
   const [signals, setSignals] = useState([]);
+  const [costBasis, setCostBasis] = useState(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(true);
+  const [isLoadingCostBasis, setIsLoadingCostBasis] = useState(true);
   const [isRefreshingSignals, setIsRefreshingSignals] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [error, setError] = useState(null);
@@ -79,12 +83,27 @@ export default function Trading() {
     }
   }, []);
 
+  const fetchCostBasis = useCallback(async () => {
+    setIsLoadingCostBasis(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/coinbase/cost-basis`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.success) setCostBasis(data);
+    } catch (err) {
+      console.error('Cost basis error:', err);
+    } finally {
+      setIsLoadingCostBasis(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchStatus();
     fetchSignals();
+    fetchCostBasis();
     const interval = setInterval(() => fetchStatus(true), REFRESH_INTERVAL);
     return () => clearInterval(interval);
-  }, [fetchStatus, fetchSignals]);
+  }, [fetchStatus, fetchSignals, fetchCostBasis]);
 
   async function handleClosePosition(positionId) {
     const adminPassword = prompt('Enter admin password to close position:');
@@ -102,14 +121,32 @@ export default function Trading() {
   async function handleExecuteTrade(signal) {
     const adminPassword = prompt('Enter admin password to execute trade:');
     if (!adminPassword) return;
+
+    const isSell = signal.signal === 'SELL';
+
+    // Optimistically remove SELL signal immediately so the UI feels instant
+    if (isSell) {
+      setSignals(prev => prev.filter(s => !(s.symbol === signal.symbol && s.signal === 'SELL')));
+    }
+
     const res = await fetch(`${API_BASE}/api/trading/execute`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminPassword}` },
-      body: JSON.stringify(signal)
+      body: JSON.stringify({ ...signal, side: signal.signal })
     });
     const data = await res.json();
-    if (data.success) { alert(`Trade executed: ${data.message}`); await fetchStatus(); await fetchSignals(); }
-    else alert(`Error: ${data.error}`);
+
+    if (data.success) {
+      const warn = data.db_warnings?.length ? `\n\n⚠️ DB warning (order succeeded): ${data.db_warnings.join('; ')}` : '';
+      alert(`Trade executed: ${data.message}${warn}`);
+      // Refresh positions/trade-history, signals (with 4h cooldown filter), and cost-basis
+      await Promise.all([fetchStatus(), fetchSignals(), ...(isSell ? [fetchCostBasis()] : [])]);
+    } else {
+      // Restore the signal if the sell actually failed
+      if (isSell) await fetchSignals();
+      const detail = data.details ? `\n\nCoinbase response:\n${JSON.stringify(data.details, null, 2)}` : '';
+      alert(`Error: ${data.error}${detail}`);
+    }
   }
 
   const isLoading = isLoadingStatus && !status;
@@ -206,10 +243,20 @@ export default function Trading() {
           {/* Row 1: Portfolio Summary */}
           <PortfolioSummary portfolio={status?.portfolio} />
 
-          {/* Row 2: Chart + Strategy Controls */}
+          {/* Row 2: Holdings Analysis */}
+          <HoldingsAnalysis
+            holdings={costBasis?.holdings || []}
+            summary={costBasis?.summary || null}
+            cashAvailable={status?.portfolio?.liveAssets?.find(a => a.type === 'cash')?.value_usd || 0}
+            isLoading={isLoadingCostBasis}
+            onRefresh={fetchCostBasis}
+          />
+
+          {/* Row 3: Chart + Strategy Controls */}
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
-              <LiveChart snapshots={status?.snapshots ? [status.snapshots] : []} />
+              <LiveChart snapshots={status?.snapshots || []} />
             </div>
             <div>
               <StrategyControls riskMetrics={status?.riskMetrics} onRunCron={() => fetchStatus()} />
@@ -218,14 +265,17 @@ export default function Trading() {
 
           {/* Row 3: Signals + Risk */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <SignalPanel signals={signals} onRefresh={fetchSignals} onExecute={handleExecuteTrade} isRefreshing={isRefreshingSignals} />
-            <RiskMetrics riskMetrics={status?.riskMetrics} snapshots={[]} />
+            <SignalPanel signals={signals} openPositions={status?.openPositions || []} liveAssets={status?.portfolio?.liveAssets || []} onRefresh={fetchSignals} onExecute={handleExecuteTrade} isRefreshing={isRefreshingSignals} />
+            <RiskMetrics riskMetrics={status?.riskMetrics} snapshots={status?.snapshots || []} />
           </div>
 
-          {/* Row 4: Open Positions */}
+          {/* Row 4: On-Chain Signal Engine + Backtesting */}
+          <OnChainSignals />
+
+          {/* Row 5: Open Positions */}
           <OpenPositions positions={status?.openPositions || []} onClosePosition={handleClosePosition} />
 
-          {/* Row 5: Trade History + Strategy Performance */}
+          {/* Row 6: Trade History + Strategy Performance */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
               <TradeHistory trades={status?.recentTrades || []} />

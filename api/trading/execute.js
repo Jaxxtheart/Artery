@@ -19,18 +19,31 @@ module.exports = async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const { symbol, side, confidence, strategy, price, reason, positionSizeUSD } = req.body;
+  const { symbol, side, confidence, strategy, price, reason, positionSizeUSD, dry_run = false } = req.body;
 
   if (!symbol || !side || !strategy) {
     return res.status(400).json({ error: 'symbol, side, and strategy are required' });
   }
 
+  const isBuy  = side.toUpperCase() === 'BUY';
+  const isSell = side.toUpperCase() === 'SELL';
+
+  // Round a value to the decimal precision defined by a Coinbase increment string
+  // e.g. base_increment "0.01" → 2 dp,  "1" → 0 dp,  "0.00000001" → 8 dp
+  function roundToIncrement(value, increment = '0.00000001') {
+    const decimals = (increment.toString().split('.')[1] || '').length;
+    return parseFloat(value.toFixed(decimals));
+  }
+
   try {
     const coinbase = createCoinbaseClient();
 
-    // Get portfolio state
-    const portfolio = await coinbase.getPortfolio();
+    // Fetch portfolio first — needed for both risk check and SELL base size
+    const portfolio  = await coinbase.getPortfolio();
     const totalValue = portfolio.reduce((sum, acc) => sum + acc.value_usd, 0);
+    const ticker     = symbol.replace('-USD', '');
+    const asset      = portfolio.find(a => a.currency === ticker);
+    const currentPrice = await coinbase.getProductPrice(symbol);
 
     // Count open positions
     let openPositionCount = 0;
@@ -42,76 +55,200 @@ module.exports = async function handler(req, res) {
       openPositionCount = count || 0;
     }
 
-    // Check risk limits
-    const riskCheck = checkRiskLimits({
-      totalValue,
-      startOfDayValue: totalValue, // Simplified - would use snapshot in production
-      openPositions: openPositionCount,
-      tradingEnabled: true
-    });
-
-    if (!riskCheck.allowed) {
-      return res.status(400).json({ error: riskCheck.reason });
+    // Risk check (only enforced for BUY — SELL reduces exposure)
+    if (isBuy) {
+      const riskCheck = checkRiskLimits({
+        totalValue,
+        startOfDayValue: totalValue,
+        openPositions: openPositionCount,
+        tradingEnabled: true
+      });
+      if (!riskCheck.allowed) {
+        return res.status(400).json({ error: riskCheck.reason });
+      }
     }
 
-    // Calculate position size
-    const tradeSize = positionSizeUSD || calculatePositionSize(totalValue, confidence || 0.7, openPositionCount);
-    if (tradeSize < 10) {
-      return res.status(400).json({ error: 'Position size too small (minimum $10)' });
+    // Determine order size
+    // BUY  → quote_size in USD (how much to spend)
+    // SELL → base_size in crypto units (how many to sell — full balance)
+    let orderSize;
+    if (isBuy) {
+      orderSize = positionSizeUSD || calculatePositionSize(totalValue, confidence || 0.7, openPositionCount);
+      if (orderSize < 10) {
+        return res.status(400).json({ error: 'Position size too small (minimum $10)' });
+      }
+    } else {
+      // Sell the full holding of this coin
+      if (!asset || asset.balance <= 0) {
+        return res.status(400).json({ error: `No ${ticker} balance to sell` });
+      }
+      // Round to product's base_increment precision to avoid INVALID_SIZE_PRECISION
+      const productDetails = await coinbase.getProductDetails(symbol).catch(() => ({}));
+      const baseIncrement  = productDetails.base_increment || '0.00000001';
+      // Trim 0.1% first so rounding doesn't push us above available balance
+      orderSize = roundToIncrement(asset.balance * 0.999, baseIncrement);
     }
 
-    // Get current price
-    const currentPrice = await coinbase.getProductPrice(symbol);
-
-    // Place order
-    const order = await coinbase.placeOrder(symbol, side, tradeSize);
-    const orderId = order.success_response?.order_id || order.order_id;
-
-    if (!order.success && !orderId) {
-      return res.status(400).json({
-        error: 'Order placement failed',
-        details: order.error_response || order
+    // Dry run — use preview endpoint, no real order placed
+    if (dry_run) {
+      let preview = null;
+      let previewError = null;
+      try {
+        preview = await coinbase.previewOrder(symbol, side, orderSize);
+      } catch (e) {
+        previewError = e.message;
+      }
+      return res.status(200).json({
+        success: true,
+        dry_run: true,
+        would_succeed: !previewError,
+        order_params: {
+          symbol, side: side.toUpperCase(), orderSize,
+          orderSizeLabel: isBuy ? `$${orderSize.toFixed(2)} USD` : `${orderSize} ${ticker}`,
+          size_field: isBuy ? 'quote_size' : 'base_size',
+          currentPrice,
+        },
+        portfolio_snapshot: {
+          totalValue,
+          cashBalance: portfolio.filter(a => a.type === 'cash').reduce((s, a) => s + a.value_usd, 0),
+          assetBalance: asset?.balance || 0,
+          assetValueUSD: asset?.value_usd || 0,
+        },
+        coinbase_preview: preview,
+        preview_error: previewError,
       });
     }
 
-    // Calculate stop levels
+    // Place order
+    const order    = await coinbase.placeOrder(symbol, side, orderSize);
+    const orderId  = order.success_response?.order_id || order.order_id;
+    const success  = !!(order.success || orderId);
+
+    if (!success) {
+      const cb = order.error_response || {};
+      const reason = cb.preview_failure_reason || cb.new_order_failure_reason || cb.message || cb.error || JSON.stringify(order);
+      return res.status(400).json({
+        error: `Order placement failed: ${reason}`,
+        details: order
+      });
+    }
+
+    // Calculate stop levels (BUY positions only)
     const { stopLoss, takeProfit } = calculateStopLevels(currentPrice, side);
 
-    // Save to database
+    // Save to database — wrapped so DB failures can't mask a successful order
+    const dbWarnings = [];
     if (supabase) {
-      const { data: position, error } = await supabase.from('positions').insert({
-        symbol,
-        side: side.toUpperCase(),
-        entry_price: currentPrice,
-        size: tradeSize / currentPrice,
-        strategy,
-        stop_loss: stopLoss,
-        take_profit: takeProfit,
-        status: 'OPEN',
-        coinbase_order_id: orderId
-      }).select().single();
+      try {
+        if (isBuy) {
+          const { error: posErr } = await supabase.from('positions').insert({
+            symbol,
+            side: 'BUY',
+            entry_price: currentPrice,
+            size: orderSize / currentPrice,
+            strategy,
+            stop_loss: stopLoss,
+            take_profit: takeProfit,
+            status: 'OPEN',
+            coinbase_order_id: orderId
+          });
+          if (posErr) dbWarnings.push(`position insert: ${posErr.message}`);
+        } else {
+          const now = new Date().toISOString();
 
-      if (error) console.error('Failed to save position:', error.message);
+          // Check for a bot-opened position to close
+          const { data: openPos } = await supabase
+            .from('positions')
+            .select('*')
+            .eq('symbol', symbol)
+            .eq('status', 'OPEN')
+            .limit(1)
+            .single();
 
-      // Mark signal as executed
-      await supabase.from('signals').update({ executed: true })
-        .eq('symbol', symbol)
-        .eq('signal', side.toUpperCase())
-        .eq('executed', false)
-        .order('created_at', { ascending: false })
-        .limit(1);
+          if (openPos) {
+            // Bot-tracked position — close it and record P&L
+            const pnlUsd = (currentPrice - openPos.entry_price) * openPos.size;
+            const pnlPct = ((currentPrice - openPos.entry_price) / openPos.entry_price) * 100;
+            const { error: updErr } = await supabase.from('positions').update({
+              status: 'CLOSED',
+              exit_price: currentPrice,
+              exit_time: now,
+              pnl_usd: pnlUsd,
+              pnl_pct: pnlPct
+            }).eq('id', openPos.id);
+            if (updErr) dbWarnings.push(`position close: ${updErr.message}`);
+
+            const { error: histErr } = await supabase.from('trade_history').insert({
+              symbol, side: 'SELL', entry_price: openPos.entry_price, exit_price: currentPrice,
+              size: openPos.size, pnl_usd: pnlUsd, pnl_pct: pnlPct, strategy,
+              reason: reason || 'Manual sell', entry_time: openPos.entry_time,
+              exit_time: now,
+              duration_hours: (Date.now() - new Date(openPos.entry_time).getTime()) / 3600000
+            });
+            if (histErr) dbWarnings.push(`trade_history insert: ${histErr.message}`);
+          } else {
+            // Untracked holding — record in trade_history using stored cost basis
+            const soldUnits = orderSize;
+
+            let costBasisPrice = null;
+            try {
+              const { data: manualEntry } = await supabase
+                .from('holdings_cost_basis')
+                .select('total_spent')
+                .eq('currency', ticker)
+                .maybeSingle();
+              if (manualEntry?.total_spent && asset?.balance > 0) {
+                costBasisPrice = parseFloat(manualEntry.total_spent) / asset.balance;
+              }
+            } catch {
+              // holdings_cost_basis may not exist yet — safe to ignore
+            }
+
+            const entryPrice = costBasisPrice || currentPrice;
+            const pnlUsd = (currentPrice - entryPrice) * soldUnits;
+            const pnlPct = entryPrice > 0 ? ((currentPrice - entryPrice) / entryPrice) * 100 : 0;
+
+            const { error: histErr } = await supabase.from('trade_history').insert({
+              symbol, side: 'SELL',
+              entry_price: entryPrice,
+              exit_price: currentPrice,
+              size: soldUnits,
+              pnl_usd: pnlUsd,
+              pnl_pct: pnlPct,
+              strategy,
+              reason: reason || 'Manual sell (untracked holding)',
+              entry_time: now,
+              exit_time: now,
+              duration_hours: 0
+            });
+            if (histErr) dbWarnings.push(`trade_history insert: ${histErr.message}`);
+          }
+        }
+
+        await supabase.from('signals').update({ executed: true })
+          .eq('symbol', symbol).eq('signal', side.toUpperCase()).eq('executed', false);
+      } catch (dbError) {
+        // Log but don't fail — the Coinbase order already succeeded
+        console.error('DB error after successful order:', dbError.message);
+        dbWarnings.push(dbError.message);
+      }
     }
+
+    const sizeLabel = isBuy
+      ? `$${orderSize.toFixed(2)}`
+      : `${orderSize.toFixed(6)} ${ticker} (≈$${(orderSize * currentPrice).toFixed(2)})`;
 
     return res.status(200).json({
       success: true,
       orderId,
       symbol,
       side,
-      size: tradeSize,
+      orderSize,
       price: currentPrice,
-      stopLoss,
-      takeProfit,
-      message: `${side} order placed for ${symbol}: $${tradeSize.toFixed(2)}`
+      stopLoss: isBuy ? stopLoss : null,
+      takeProfit: isBuy ? takeProfit : null,
+      message: `${side} order placed for ${symbol}: ${sizeLabel}`,
+      ...(dbWarnings.length > 0 && { db_warnings: dbWarnings })
     });
   } catch (error) {
     console.error('Execute error:', error);

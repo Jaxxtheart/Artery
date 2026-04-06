@@ -390,7 +390,7 @@ api/
 ## 🔑 Admin Access
 
 ### Login Credentials
-- **URL**: `https://arterycapital.com/admin`
+- **URL**: `https://arterycapital.co.za/admin`
 - **Password**: Set via `ADMIN_PASSWORD` environment variable (default: `admin123`)
 
 ### Environment Variables
@@ -679,7 +679,7 @@ For admin system issues:
 2. Review PHASE4_IMPLEMENTATION.md
 3. Check Vercel function logs
 4. Review Supabase database logs
-5. Contact: invest@arterycapital.com
+5. Contact: invest@arterycapital.co.za
 
 ---
 

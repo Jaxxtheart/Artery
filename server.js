@@ -36,12 +36,17 @@ const getHandler = require('./api/applications/get.js');
 const portfolioHandler = require('./api/coinbase/portfolio.js');
 const pricesHandler = require('./api/coinbase/prices.js');
 const ordersHandler = require('./api/coinbase/orders.js');
+const costBasisHandler = require('./api/coinbase/cost-basis.js');
+const holdingsCostBasisHandler = require('./api/holdings/cost-basis.js');
 const signalsHandler = require('./api/trading/signals.js');
 const statusHandler = require('./api/trading/status.js');
 const executeHandler = require('./api/trading/execute.js');
 const positionsHandler = require('./api/trading/positions.js');
+const testConnectionHandler = require('./api/trading/test-connection.js');
+const testOrderHandler = require('./api/trading/test-order.js');
 const dailyTradeHandler = require('./api/cron/daily-trade.js');
 const emailReportHandler = require('./api/email/daily-report.js');
+const onchainSignalsHandler = require('./api/trading/onchain-signals.js');
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -120,12 +125,17 @@ function wrapHandler(handler) {
 app.get('/api/coinbase/portfolio', wrapHandler(portfolioHandler));
 app.get('/api/coinbase/prices', wrapHandler(pricesHandler));
 app.all('/api/coinbase/orders', wrapHandler(ordersHandler));
+app.get('/api/coinbase/cost-basis', wrapHandler(costBasisHandler));
+app.all('/api/holdings/cost-basis', wrapHandler(holdingsCostBasisHandler));
 
 // Trading routes
 app.get('/api/trading/signals', wrapHandler(signalsHandler));
 app.get('/api/trading/status', wrapHandler(statusHandler));
 app.post('/api/trading/execute', wrapHandler(executeHandler));
 app.all('/api/trading/positions', wrapHandler(positionsHandler));
+app.get('/api/trading/test-connection', wrapHandler(testConnectionHandler));
+app.post('/api/trading/test-order', wrapHandler(testOrderHandler));
+app.get('/api/trading/onchain-signals', wrapHandler(onchainSignalsHandler));
 
 // Cron route
 app.all('/api/cron/daily-trade', wrapHandler(dailyTradeHandler));

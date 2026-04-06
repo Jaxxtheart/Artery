@@ -5,21 +5,16 @@
   "framework": "vite",
   "functions": {
     "api/**/*.js": {
-      "memory": 1024,
       "maxDuration": 30
     }
   },
   "crons": [
     {
       "path": "/api/cron/daily-trade",
-      "schedule": "0 22 * * *"
+      "schedule": "0 * * * *"
     }
   ],
   "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "/api/:path*"
-    },
     {
       "source": "/((?!api/).*)",
       "destination": "/index.html"

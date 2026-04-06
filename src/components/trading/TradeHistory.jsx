@@ -24,6 +24,9 @@ export default function TradeHistory({ trades = [] }) {
         <div style={{ textAlign: 'center', padding: '48px 0', color: '#C0C0C0' }}>
           <div style={{ fontSize: 36, marginBottom: 10 }}>📋</div>
           <div style={{ fontSize: 13, color: '#A0A0A0' }}>No completed trades yet</div>
+          <div style={{ fontSize: 11, color: '#C0C0C0', marginTop: 6 }}>
+            Trades appear here once open positions are closed via stop-loss, take-profit, or manually
+          </div>
         </div>
       ) : (
         <div style={{ overflowX: 'auto' }}>

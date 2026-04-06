@@ -195,8 +195,18 @@ CREATE TABLE IF NOT EXISTS signals (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Performance indexes
-CREATE INDEX IF NOT EXISTS idx_positions_status ON positions(status);
+-- Manual cost basis entries for externally purchased holdings
+CREATE TABLE IF NOT EXISTS holdings_cost_basis (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  currency TEXT NOT NULL UNIQUE,
+  total_spent DECIMAL(18, 8) NOT NULL,  -- total USD paid across all purchases
+  notes TEXT,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE holdings_cost_basis ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Service role full access on holdings_cost_basis"
+  ON holdings_cost_basis FOR ALL TO service_role USING (true) WITH CHECK (true);
 CREATE INDEX IF NOT EXISTS idx_positions_created_at ON positions(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_trade_history_created_at ON trade_history(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_signals_created_at ON signals(created_at DESC);
