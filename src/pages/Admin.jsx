@@ -28,16 +28,20 @@ export default function Admin() {
     setLoading(true);
 
     try {
-      const adminPassword = 'admin123';
+      // Validate against the real API — this respects the ADMIN_PASSWORD env var
+      const API_URL = import.meta.env.VITE_API_URL || '';
+      const response = await fetch(`${API_URL}/api/applications/list`, {
+        headers: { 'Authorization': `Bearer ${password}` }
+      });
 
-      if (password === adminPassword) {
+      if (response.ok) {
         sessionStorage.setItem('adminAuth', password);
         navigate('/admin/dashboard');
       } else {
         setError('Invalid password');
       }
     } catch (err) {
-      setError('Login failed');
+      setError('Login failed. Check your connection.');
     } finally {
       setLoading(false);
     }
