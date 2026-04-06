@@ -1,5 +1,9 @@
 # Phase 4: Backend Integration - Implementation Guide
 
+## ⚠️ CRITICAL: READ BEFORE MAKING CHANGES
+
+**IMPORTANT**: See [DO_NOT_DELETE.md](./DO_NOT_DELETE.md) for a complete list of features that must **NEVER** be removed.
+
 ## ⚠️ CRITICAL: Admin System Must Always Be Present
 
 **THE ADMIN SYSTEM IS A CORE FEATURE** and must **NEVER** be removed or excluded. The admin system includes:

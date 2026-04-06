@@ -28,9 +28,7 @@ export default function Admin() {
     setLoading(true);
 
     try {
-      // Simple password check
-      // In production, this should be a proper API call
-      const adminPassword = 'admin123'; // This should match ADMIN_PASSWORD env var
+      const adminPassword = 'admin123';
 
       if (password === adminPassword) {
         sessionStorage.setItem('adminAuth', password);

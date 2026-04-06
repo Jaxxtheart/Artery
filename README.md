@@ -1,6 +1,14 @@
 # Artery Capital
 
-**Africa's innovation starts here.** We back exceptional African founders building technology companies with $15,000 funding + strategic business advisory.
+**Build. Scale. Win.** We back exceptional African founders building technology companies with $15,000 funding + strategic business advisory.
+
+---
+
+## ⚠️ CRITICAL: Before Making Any Changes
+
+**READ THIS FIRST**: [DO_NOT_DELETE.md](./DO_NOT_DELETE.md)
+
+This file lists all core features that must **NEVER** be removed or modified. Read it before making any code changes to prevent breaking existing functionality.
 
 ---
 

@@ -42,6 +42,8 @@ export default function Home() {
         .contact-email:hover { color: #FF5A5F; border-bottom-color: transparent; }
         footer { padding: 48px 20px; background: #1A1A1A; color: #8A8A8A; text-align: center; font-size: 14px; font-weight: 400; position: relative; }
         footer::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 100px; height: 1px; background: linear-gradient(90deg, transparent 0%, #3A3A3A 50%, transparent 100%); }
+        .admin-link { position: absolute; bottom: 20px; right: 20px; color: #5A5A5A; text-decoration: none; font-size: 12px; transition: color 0.3s; }
+        .admin-link:hover { color: #FF5A5F; }
         .scroll-indicator { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); animation: bounce 2s infinite; opacity: 0.4; }
         .scroll-indicator::before { content: ''; display: block; width: 20px; height: 32px; border: 2px solid #2C2C2C; border-radius: 16px; position: relative; }
         .scroll-indicator::after { content: ''; display: block; width: 3px; height: 6px; background: #2C2C2C; border-radius: 2px; position: absolute; top: 6px; left: 8.5px; animation: scroll 2s infinite; }
@@ -111,6 +113,7 @@ export default function Home() {
 
       <footer>
         <p>© 2026 Artery Capital. All rights reserved.</p>
+        <Link to="/admin" className="admin-link">Admin</Link>
         <Link to="/admin" style={{color: '#4A4A4A', textDecoration: 'none', fontSize: '12px', marginTop: '12px', display: 'inline-block', opacity: 0.5, transition: 'opacity 0.3s'}}>
           Admin
         </Link>
