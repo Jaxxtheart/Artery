@@ -245,7 +245,7 @@ module.exports = async function handler(req, res) {
           portfolio: { totalValue, cashBalance },
           signals,
           executedTrades: tradesExecuted,
-          closedPositions: closedToday,
+          closedPositions: closedThisCycle,
           log: executionLog
         });
         log('Daily report email sent');
