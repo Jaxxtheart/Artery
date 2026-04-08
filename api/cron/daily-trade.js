@@ -175,15 +175,25 @@ module.exports = async function handler(req, res) {
         }
 
         try {
-          const positionSize = calculatePositionSize(totalValue, signal.confidence, remainingPositions + tradesExecuted.length);
+          // Size against deployable cash, not total portfolio (avoids overshooting available funds)
+          const positionSize = calculatePositionSize(
+            Math.min(totalValue, cashRemaining * 4), // cash-anchored ceiling
+            signal.confidence,
+            remainingPositions + tradesExecuted.length
+          );
 
           if (positionSize < 10) {
             log(`Skipping ${signal.symbol}: position size $${positionSize.toFixed(2)} too small`);
             continue;
           }
           if (cashRemaining < positionSize) {
-            log(`Skipping ${signal.symbol}: only $${cashRemaining.toFixed(2)} cash available, need $${positionSize.toFixed(2)}`);
-            continue;
+            if (cashRemaining < 10) {
+              log(`Skipping ${signal.symbol}: insufficient cash ($${cashRemaining.toFixed(2)})`);
+              continue;
+            }
+            // Use available cash rather than skip entirely
+            log(`Reducing ${signal.symbol} position from $${positionSize.toFixed(2)} to available cash $${cashRemaining.toFixed(2)}`);
+            positionSize = cashRemaining * 0.99; // leave 1% buffer for fees
           }
 
           log(`Executing BUY ${signal.symbol}: $${positionSize.toFixed(2)} from $${cashRemaining.toFixed(2)} cash (confidence: ${(signal.confidence * 100).toFixed(0)}%)`);
