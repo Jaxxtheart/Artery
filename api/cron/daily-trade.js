@@ -154,39 +154,65 @@ module.exports = async function handler(req, res) {
 
     // 5. Execute top buy signals — strategy coins only, funded from cash on hand
     const tradesExecuted = [];
-    let cashRemaining = cashBalance; // track cash as we deploy it
+    let cashRemaining = cashBalance;
 
     if (riskCheck.allowed) {
+      const slotsAvailable = Math.min(3, 4 - remainingPositions); // max 3 new trades, cap at open position limit
+
       const buySignals = signals
         .filter(s =>
           s.signal === 'BUY' &&
           s.confidence >= MIN_CONFIDENCE &&
-          STRATEGY_SYMBOLS.has(s.symbol) &&           // only BTC/ETH/SOL/AVAX/LINK
+          STRATEGY_SYMBOLS.has(s.symbol) &&
           !cooldownSymbols.has(s.symbol)
         )
-        .slice(0, 3);
+        .sort((a, b) => b.confidence - a.confidence) // highest confidence first
+        .slice(0, slotsAvailable);
 
-      log(`Eligible buy signals: ${buySignals.map(s => `${s.symbol}(${(s.confidence*100).toFixed(0)}%)`).join(', ') || 'none'}`);
+      log(`Eligible buy signals (${buySignals.length}): ${buySignals.map(s => `${s.symbol}(${(s.confidence*100).toFixed(0)}%)`).join(', ') || 'none'}`);
 
-      for (const signal of buySignals) {
+      // ── Confidence-weighted cash split ─────────────────────────────────────
+      // Each signal gets a share of cash proportional to its confidence score.
+      // A 5% reserve is kept back to cover fees and rounding.
+      const CASH_RESERVE = 0.05;
+      const deployableCash = cashRemaining * (1 - CASH_RESERVE);
+      const totalWeight = buySignals.reduce((sum, s) => sum + s.confidence, 0);
+
+      const allocations = buySignals.map(s => ({
+        ...s,
+        allocated: totalWeight > 0
+          ? (s.confidence / totalWeight) * deployableCash
+          : deployableCash / buySignals.length
+      }));
+
+      if (allocations.length > 0) {
+        log(`Cash split across ${allocations.length} signal(s) from $${deployableCash.toFixed(2)} deployable:`);
+        allocations.forEach(a => log(`  ${a.symbol}: $${a.allocated.toFixed(2)} (${(a.confidence*100).toFixed(0)}% confidence)`));
+      }
+
+      for (const signal of allocations) {
         if (remainingPositions + tradesExecuted.length >= 4) {
           log('Max 4 open positions reached — no more buys this cycle');
           break;
         }
 
         try {
-          const positionSize = calculatePositionSize(totalValue, signal.confidence, remainingPositions + tradesExecuted.length);
+          let positionSize = signal.allocated;
 
           if (positionSize < 10) {
-            log(`Skipping ${signal.symbol}: position size $${positionSize.toFixed(2)} too small`);
+            log(`Skipping ${signal.symbol}: allocated $${positionSize.toFixed(2)} below $10 minimum`);
             continue;
           }
           if (cashRemaining < positionSize) {
-            log(`Skipping ${signal.symbol}: only $${cashRemaining.toFixed(2)} cash available, need $${positionSize.toFixed(2)}`);
-            continue;
+            positionSize = cashRemaining * 0.99;
+            if (positionSize < 10) {
+              log(`Skipping ${signal.symbol}: only $${cashRemaining.toFixed(2)} cash left`);
+              continue;
+            }
+            log(`Trimming ${signal.symbol} to remaining cash: $${positionSize.toFixed(2)}`);
           }
 
-          log(`Executing BUY ${signal.symbol}: $${positionSize.toFixed(2)} from $${cashRemaining.toFixed(2)} cash (confidence: ${(signal.confidence * 100).toFixed(0)}%)`);
+          log(`Executing BUY ${signal.symbol}: $${positionSize.toFixed(2)} (confidence: ${(signal.confidence*100).toFixed(0)}%)`);
           const order = await coinbase.placeOrder(signal.symbol, 'BUY', positionSize);
           const orderId = order.success_response?.order_id || order.order_id;
 
@@ -212,7 +238,7 @@ module.exports = async function handler(req, res) {
 
           cashRemaining -= positionSize;
           tradesExecuted.push({ ...signal, size: positionSize, orderId });
-          log(`Cash remaining after trade: $${cashRemaining.toFixed(2)}`);
+          log(`Cash remaining: $${cashRemaining.toFixed(2)}`);
         } catch (err) {
           log(`Error executing trade for ${signal.symbol}: ${err.message}`);
         }

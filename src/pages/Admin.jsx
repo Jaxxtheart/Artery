@@ -28,9 +28,7 @@ export default function Admin() {
     setLoading(true);
 
     try {
-      const adminPassword = 'admin123';
-
-      if (password === adminPassword) {
+      if (password === (import.meta.env.VITE_ADMIN_PASSWORD || 'admin123')) {
         sessionStorage.setItem('adminAuth', password);
         navigate('/admin/dashboard');
       } else {
