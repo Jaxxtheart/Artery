@@ -189,6 +189,14 @@ module.exports = async function handler(req, res) {
           log(`Executing BUY ${signal.symbol}: $${positionSize.toFixed(2)} from $${cashRemaining.toFixed(2)} cash (confidence: ${(signal.confidence * 100).toFixed(0)}%)`);
           const order = await coinbase.placeOrder(signal.symbol, 'BUY', positionSize);
           const orderId = order.success_response?.order_id || order.order_id;
+          const orderSuccess = !!(order.success || orderId);
+
+          if (!orderSuccess) {
+            const errResp = order.error_response || {};
+            const reason = errResp.preview_failure_reason || errResp.new_order_failure_reason || errResp.message || errResp.error || JSON.stringify(order);
+            log(`BUY order FAILED for ${signal.symbol}: ${reason}`);
+            continue;
+          }
 
           const currentPrice = await coinbase.getProductPrice(signal.symbol);
           const { stopLoss, takeProfit } = calculateStopLevels(currentPrice, 'BUY');
