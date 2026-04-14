@@ -175,7 +175,7 @@ module.exports = async function handler(req, res) {
         }
 
         try {
-          const positionSize = calculatePositionSize(totalValue, signal.confidence, remainingPositions + tradesExecuted.length);
+          const positionSize = calculatePositionSize(cashRemaining, signal.confidence, remainingPositions + tradesExecuted.length);
 
           if (positionSize < 10) {
             log(`Skipping ${signal.symbol}: position size $${positionSize.toFixed(2)} too small`);
