@@ -48,7 +48,7 @@ module.exports = async function handler(req, res) {
     // Determine size
     let orderSize, orderSizeLabel;
     if (isBuy) {
-      orderSize = positionSizeUSD || calculatePositionSize(totalValue, confidence, 0);
+      orderSize = positionSizeUSD || calculatePositionSize(cashBalance, confidence, 0);
       orderSizeLabel = `$${orderSize.toFixed(2)} USD`;
     } else {
       orderSize = asset?.balance || 0;

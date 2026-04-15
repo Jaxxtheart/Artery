@@ -152,7 +152,7 @@ def _process_asset(asset: str, total_value: float, cash_balance: float,
             avg_loss = sr.get("avg_loss", config.STOP_LOSS_PCT)
 
             pos_size = calculate_position_size(
-                total_value, req.boosted_confidence, open_count,
+                cash_balance, req.boosted_confidence, open_count,
                 win_rate, avg_win, avg_loss,
             )
 

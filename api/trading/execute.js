@@ -41,6 +41,7 @@ module.exports = async function handler(req, res) {
     // Fetch portfolio first — needed for both risk check and SELL base size
     const portfolio  = await coinbase.getPortfolio();
     const totalValue = portfolio.reduce((sum, acc) => sum + acc.value_usd, 0);
+    const cashBalance = portfolio.filter(a => a.type === 'cash').reduce((s, a) => s + a.value_usd, 0);
     const ticker     = symbol.replace('-USD', '');
     const asset      = portfolio.find(a => a.currency === ticker);
     const currentPrice = await coinbase.getProductPrice(symbol);
@@ -73,9 +74,12 @@ module.exports = async function handler(req, res) {
     // SELL → base_size in crypto units (how many to sell — full balance)
     let orderSize;
     if (isBuy) {
-      orderSize = positionSizeUSD || calculatePositionSize(totalValue, confidence || 0.7, openPositionCount);
+      orderSize = positionSizeUSD || calculatePositionSize(cashBalance, confidence || 0.7, openPositionCount);
       if (orderSize < 10) {
         return res.status(400).json({ error: 'Position size too small (minimum $10)' });
+      }
+      if (orderSize > cashBalance) {
+        return res.status(400).json({ error: `Insufficient cash: need $${orderSize.toFixed(2)} but only $${cashBalance.toFixed(2)} available` });
       }
     } else {
       // Sell the full holding of this coin

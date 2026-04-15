@@ -197,7 +197,7 @@ module.exports = async function handler(req, res) {
         }
 
         try {
-          let positionSize = signal.allocated;
+          const positionSize = calculatePositionSize(cashRemaining, signal.confidence, remainingPositions + tradesExecuted.length);
 
           if (positionSize < 10) {
             log(`Skipping ${signal.symbol}: allocated $${positionSize.toFixed(2)} below $10 minimum`);
@@ -215,6 +215,14 @@ module.exports = async function handler(req, res) {
           log(`Executing BUY ${signal.symbol}: $${positionSize.toFixed(2)} (confidence: ${(signal.confidence*100).toFixed(0)}%)`);
           const order = await coinbase.placeOrder(signal.symbol, 'BUY', positionSize);
           const orderId = order.success_response?.order_id || order.order_id;
+          const orderSuccess = !!(order.success || orderId);
+
+          if (!orderSuccess) {
+            const errResp = order.error_response || {};
+            const reason = errResp.preview_failure_reason || errResp.new_order_failure_reason || errResp.message || errResp.error || JSON.stringify(order);
+            log(`BUY order FAILED for ${signal.symbol}: ${reason}`);
+            continue;
+          }
 
           const currentPrice = await coinbase.getProductPrice(signal.symbol);
           const { stopLoss, takeProfit } = calculateStopLevels(currentPrice, 'BUY');
