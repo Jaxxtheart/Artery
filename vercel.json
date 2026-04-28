@@ -5,13 +5,13 @@
   "framework": "vite",
   "functions": {
     "api/**/*.js": {
-      "maxDuration": 30
+      "maxDuration": 60
     }
   },
   "crons": [
     {
       "path": "/api/cron/daily-trade",
-      "schedule": "0 * * * *"
+      "schedule": "5 * * * *"
     }
   ],
   "rewrites": [

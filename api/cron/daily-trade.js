@@ -110,18 +110,30 @@ module.exports = async function handler(req, res) {
 
     const remainingPositions = openPositions.length - closedThisCycle;
 
-    // 3a. Build cooldown set — skip re-entry on symbols closed in the last 4 hours
-    const COOLDOWN_HOURS = 4;
-    const cooldownSymbols = new Set();
+    // 3a. Build strategy-specific cooldown sets
+    // Mean reversion bounces quickly — 1h cooldown; trend strategies need more time — 4h
+    const COOLDOWN_MS_DEFAULT   = 4 * 3600000;
+    const COOLDOWN_MS_REVERSION = 1 * 3600000;
+    const cooldownSymbols   = new Set(); // momentum / breakout: 4h
+    const cooldownSymbolsMR = new Set(); // mean reversion: 1h
     if (supabase) {
-      const cutoff = new Date(Date.now() - COOLDOWN_HOURS * 3600000).toISOString();
+      const cutoff4h = new Date(Date.now() - COOLDOWN_MS_DEFAULT).toISOString();
       const { data: recentlyClosed } = await supabase
         .from('trade_history')
-        .select('symbol')
-        .gte('exit_time', cutoff);
-      (recentlyClosed || []).forEach(t => cooldownSymbols.add(t.symbol));
-      if (cooldownSymbols.size > 0) {
-        log(`Cooldown (${COOLDOWN_HOURS}h): skipping re-entry on ${[...cooldownSymbols].join(', ')}`);
+        .select('symbol, strategy, exit_time')
+        .gte('exit_time', cutoff4h);
+      const now = Date.now();
+      (recentlyClosed || []).forEach(t => {
+        const age = now - new Date(t.exit_time).getTime();
+        if (t.strategy === 'MEAN_REVERSION') {
+          if (age < COOLDOWN_MS_REVERSION) cooldownSymbolsMR.add(t.symbol);
+        } else {
+          cooldownSymbols.add(t.symbol);
+        }
+      });
+      const allCooling = [...new Set([...cooldownSymbols, ...cooldownSymbolsMR])];
+      if (allCooling.length > 0) {
+        log(`Cooldown: ${[...cooldownSymbols].join(', ') || 'none'} (4h trend), ${[...cooldownSymbolsMR].join(', ') || 'none'} (1h reversion)`);
       }
     }
 
@@ -160,12 +172,15 @@ module.exports = async function handler(req, res) {
       const slotsAvailable = Math.min(3, 4 - remainingPositions); // max 3 new trades, cap at open position limit
 
       const buySignals = signals
-        .filter(s =>
-          s.signal === 'BUY' &&
-          s.confidence >= MIN_CONFIDENCE &&
-          STRATEGY_SYMBOLS.has(s.symbol) &&
-          !cooldownSymbols.has(s.symbol)
-        )
+        .filter(s => {
+          if (s.signal !== 'BUY') return false;
+          if (s.confidence < MIN_CONFIDENCE) return false;
+          if (!STRATEGY_SYMBOLS.has(s.symbol)) return false;
+          const inCooldown = s.strategy === 'MEAN_REVERSION'
+            ? cooldownSymbolsMR.has(s.symbol)
+            : cooldownSymbols.has(s.symbol);
+          return !inCooldown;
+        })
         .sort((a, b) => b.confidence - a.confidence) // highest confidence first
         .slice(0, slotsAvailable);
 

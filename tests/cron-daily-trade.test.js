@@ -28,7 +28,7 @@ const HIGH_CONF_AVAX = {
   strategy_signal: true,
 };
 
-const LOW_CONF_AVAX = { ...HIGH_CONF_AVAX, confidence: 0.70 };  // below threshold
+const LOW_CONF_AVAX = { ...HIGH_CONF_AVAX, confidence: 0.60 };  // below 0.65 threshold
 
 const ORDER_SUCCESS = {
   success: true,
@@ -188,7 +188,7 @@ describe('cron: signal filtering', () => {
     return makeReq({ method: 'GET', headers: { authorization: `Bearer ${CRON_SECRET}` } });
   }
 
-  test('signal below 80% confidence threshold — no order placed, no DB insert', async () => {
+  test('signal below 65% confidence threshold — no order placed, no DB insert', async () => {
     const { handler, chains, mockCoinbase } = buildMocks({
       placeOrderResponse: ORDER_SUCCESS,
       signals: [LOW_CONF_AVAX],
