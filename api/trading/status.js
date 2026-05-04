@@ -65,7 +65,7 @@ module.exports = async function handler(req, res) {
     }
 
     const riskMetrics = calculateRiskMetrics(openPositions, totalValue);
-    const initialCapital = parseFloat(process.env.INITIAL_CAPITAL || '1441');
+    const initialCapital = parseFloat(process.env.INITIAL_CAPITAL || '1377');
     const totalPnL = totalValue - initialCapital;
     const totalPnLPct = (totalPnL / initialCapital) * 100;
 
