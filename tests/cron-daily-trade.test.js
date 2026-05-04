@@ -208,13 +208,11 @@ describe('cron: signal filtering', () => {
     assert.strictEqual(chains.positions._insertCalls.length, 0);
   });
 
-  test('max 4 open positions reached — no order placed', async () => {
-    // Simulate 4 already-open positions
+  test('max 2 open positions reached — no order placed', async () => {
+    // Both ETH and BTC slots already occupied
     const fakePositions = [
-      { symbol: 'BTC-USD', status: 'OPEN' },
       { symbol: 'ETH-USD', status: 'OPEN' },
-      { symbol: 'SOL-USD', status: 'OPEN' },
-      { symbol: 'LINK-USD', status: 'OPEN' },
+      { symbol: 'BTC-USD', status: 'OPEN' },
     ];
     const { handler, chains } = buildMocks({
       placeOrderResponse: ORDER_SUCCESS,

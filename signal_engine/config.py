@@ -38,10 +38,10 @@ SIGNAL_DECAY = {
 }
 
 # ── Risk parameters (must match risk-manager.js) ──────────────────────────────
-MIN_CONFIDENCE      = 0.80   # Auto-execute threshold
-STOP_LOSS_PCT       = 0.03   # 3% stop-loss
-TAKE_PROFIT_PCT     = 0.08   # 8% take-profit
-MAX_POSITIONS       = 4
+MIN_CONFIDENCE      = 0.80   # Auto-execute threshold (higher bar for Python engine)
+STOP_LOSS_PCT       = 0.05   # 5% stop-loss — room through hourly volatility
+TAKE_PROFIT_PCT     = 0.20   # 20% take-profit — captures meaningful bull cycle legs
+MAX_POSITIONS       = 2
 MAX_POSITION_PCT    = 0.25   # 25% of portfolio per position
 DAILY_LOSS_LIMIT_PCT = 0.08  # 8% daily circuit breaker
 INITIAL_CAPITAL     = float(os.environ.get("INITIAL_CAPITAL", "1377"))
