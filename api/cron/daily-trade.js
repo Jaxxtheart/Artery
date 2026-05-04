@@ -180,7 +180,7 @@ module.exports = async function handler(req, res) {
           }
 
           const currentPrice = await coinbase.getProductPrice(signal.symbol);
-          const { stopLoss, takeProfit } = calculateStopLevels(currentPrice, 'BUY');
+          const { stopLoss, takeProfit } = calculateStopLevels(currentPrice, 'BUY', signal.atr || null);
 
           if (supabase) {
             await supabase.from('positions').insert({
