@@ -12,7 +12,6 @@ const {
   calculatePositionSize,
   calculateStopLevels,
   checkRiskLimits,
-  shouldClosePosition,
   MIN_CONFIDENCE
 } = require('../../lib/trading/risk-manager');
 
@@ -44,71 +43,12 @@ module.exports = async function handler(req, res) {
     const cashBalance = portfolio.filter(a => a.type === 'cash').reduce((s, a) => s + a.value_usd, 0);
     log(`Portfolio: $${totalValue.toFixed(2)} total, $${cashBalance.toFixed(2)} cash`);
 
-    // 2. Manage bot-opened positions (stop-loss / take-profit)
-    // Only positions tracked in Supabase (opened by the bot) are auto-managed.
-    // Legacy Coinbase holdings never appear here — they are always manual.
-    let openPositions = [];
-    let closedThisCycle = 0;
+    // 2. Count open bot positions (ETH + BTC only; max 2 slots)
+    let openPositionCount = 0;
     if (supabase) {
-      const { data } = await supabase.from('positions').select('*').eq('status', 'OPEN');
-      openPositions = data || [];
+      const { data } = await supabase.from('positions').select('id').eq('status', 'OPEN');
+      openPositionCount = (data || []).length;
     }
-
-    for (const position of openPositions) {
-      try {
-        const currentPrice = await coinbase.getProductPrice(position.symbol);
-        const pnlUsd = (currentPrice - position.entry_price) * position.size;
-        const pnlPct = ((currentPrice - position.entry_price) / position.entry_price) * 100;
-        const closeCheck = shouldClosePosition(position, currentPrice);
-
-        if (closeCheck.close) {
-          log(`Closing bot position ${position.symbol}: ${closeCheck.reason} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)`);
-
-          // Sell uses base_size (crypto units)
-          const productDetails = await coinbase.getProductDetails(position.symbol).catch(() => ({}));
-          const baseIncrement  = productDetails.base_increment || '0.00000001';
-          const decimals = (baseIncrement.toString().split('.')[1] || '').length;
-          const sellSize = parseFloat((position.size * 0.999).toFixed(decimals));
-
-          await coinbase.placeOrder(position.symbol, 'SELL', sellSize);
-
-          const durationHours = (Date.now() - new Date(position.entry_time).getTime()) / 3600000;
-          const now = new Date().toISOString();
-
-          if (supabase) {
-            await supabase.from('positions').update({
-              status: 'CLOSED',
-              exit_price: currentPrice,
-              exit_time: now,
-              pnl_usd: pnlUsd,
-              pnl_pct: pnlPct
-            }).eq('id', position.id);
-
-            await supabase.from('trade_history').insert({
-              symbol: position.symbol,
-              side: 'SELL',
-              entry_price: position.entry_price,
-              exit_price: currentPrice,
-              size: position.size,
-              pnl_usd: pnlUsd,
-              pnl_pct: pnlPct,
-              strategy: position.strategy,
-              reason: closeCheck.reason,
-              duration_hours: durationHours,
-              entry_time: position.entry_time,
-              exit_time: now
-            });
-          }
-          closedThisCycle++;
-        } else {
-          log(`Holding ${position.symbol}: ${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}% — stop $${position.stop_loss?.toFixed(4)}, target $${position.take_profit?.toFixed(4)}`);
-        }
-      } catch (err) {
-        log(`Error managing position ${position.symbol}: ${err.message}`);
-      }
-    }
-
-    const remainingPositions = openPositions.length - closedThisCycle;
 
     // 3a. Build strategy-specific cooldown sets
     // Mean reversion bounces quickly — 1h cooldown; trend strategies need more time — 4h
@@ -141,7 +81,7 @@ module.exports = async function handler(req, res) {
     const riskCheck = checkRiskLimits({
       totalValue,
       startOfDayValue: totalValue,
-      openPositions: remainingPositions,
+      openPositions: openPositionCount,
       tradingEnabled: true
     });
 
@@ -169,7 +109,7 @@ module.exports = async function handler(req, res) {
     let cashRemaining = cashBalance;
 
     if (riskCheck.allowed) {
-      const slotsAvailable = Math.min(3, 4 - remainingPositions); // max 3 new trades, cap at open position limit
+      const slotsAvailable = Math.max(0, 2 - openPositionCount); // max 2 positions: one ETH, one BTC
 
       const buySignals = signals
         .filter(s => {
@@ -181,7 +121,7 @@ module.exports = async function handler(req, res) {
             : cooldownSymbols.has(s.symbol);
           return !inCooldown;
         })
-        .sort((a, b) => b.confidence - a.confidence) // highest confidence first
+        .sort((a, b) => b.confidence - a.confidence)
         .slice(0, slotsAvailable);
 
       log(`Eligible buy signals (${buySignals.length}): ${buySignals.map(s => `${s.symbol}(${(s.confidence*100).toFixed(0)}%)`).join(', ') || 'none'}`);
@@ -206,13 +146,13 @@ module.exports = async function handler(req, res) {
       }
 
       for (const signal of allocations) {
-        if (remainingPositions + tradesExecuted.length >= 4) {
-          log('Max 4 open positions reached — no more buys this cycle');
+        if (openPositionCount + tradesExecuted.length >= 2) {
+          log('Max 2 open positions reached — no more buys this cycle');
           break;
         }
 
         try {
-          const positionSize = calculatePositionSize(cashRemaining, signal.confidence, remainingPositions + tradesExecuted.length);
+          const positionSize = calculatePositionSize(cashRemaining, signal.confidence, openPositionCount + tradesExecuted.length);
 
           if (positionSize < 10) {
             log(`Skipping ${signal.symbol}: allocated $${positionSize.toFixed(2)} below $10 minimum`);
@@ -279,8 +219,8 @@ module.exports = async function handler(req, res) {
         cash_balance: cashBalance,
         crypto_value: totalValue - cashBalance,
         total_pnl: totalPnL,
-        daily_pnl: 0, // Would calculate from yesterday's snapshot
-        open_positions: remainingPositions + tradesExecuted.length,
+        daily_pnl: 0,
+        open_positions: openPositionCount + tradesExecuted.length,
         snapshot_date: today
       }, { onConflict: 'snapshot_date' });
     }
@@ -294,7 +234,7 @@ module.exports = async function handler(req, res) {
           portfolio: { totalValue, cashBalance },
           signals,
           executedTrades: tradesExecuted,
-          closedPositions: closedThisCycle,
+          closedPositions: 0,
           log: executionLog
         });
         log('Daily report email sent');
@@ -308,10 +248,9 @@ module.exports = async function handler(req, res) {
       signalsAnalyzed: signals.length,
       tradesExecuted: tradesExecuted.length,
       tradesDetail: tradesExecuted.map(t => ({ symbol: t.symbol, size: t.size, confidence: t.confidence })),
-      positionsClosed: closedThisCycle,
       cashBefore: cashBalance,
       cashAfter: cashRemaining,
-      openPositions: remainingPositions + tradesExecuted.length,
+      openPositions: openPositionCount + tradesExecuted.length,
       portfolioValue: totalValue,
       log: executionLog
     });
