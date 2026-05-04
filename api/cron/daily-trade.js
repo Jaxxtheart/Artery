@@ -271,7 +271,7 @@ module.exports = async function handler(req, res) {
     // 6. Save portfolio snapshot
     if (supabase) {
       const today = new Date().toISOString().split('T')[0];
-      const initialCapital = parseFloat(process.env.INITIAL_CAPITAL || '1441');
+      const initialCapital = parseFloat(process.env.INITIAL_CAPITAL || '1377');
       const totalPnL = totalValue - initialCapital;
 
       await supabase.from('portfolio_snapshots').upsert({

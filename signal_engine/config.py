@@ -44,7 +44,7 @@ TAKE_PROFIT_PCT     = 0.08   # 8% take-profit
 MAX_POSITIONS       = 4
 MAX_POSITION_PCT    = 0.25   # 25% of portfolio per position
 DAILY_LOSS_LIMIT_PCT = 0.08  # 8% daily circuit breaker
-INITIAL_CAPITAL     = float(os.environ.get("INITIAL_CAPITAL", "1441"))
+INITIAL_CAPITAL     = float(os.environ.get("INITIAL_CAPITAL", "1377"))
 
 # ── APScheduler timing (UTC) ─────────────────────────────────────────────────
 SIGNAL_RUN_HOUR   = 5   # 05:00 UTC  — generate signals
