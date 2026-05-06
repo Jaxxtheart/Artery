@@ -37,21 +37,15 @@ function getActionContext(signal, openPositions = [], liveAssets = []) {
   const hasHolding = liveAssets.some(a => a.currency === ticker && a.balance > 0);
 
   if (signal.signal === 'BUY') {
-    if (signal.confidence >= 0.80) {
+    if (signal.confidence >= 0.65) {
       return {
-        text: 'High conviction — bot will auto-buy this at the next hourly run using available USD cash (max 4 open positions).',
+        text: 'High conviction — bot will auto-buy this at the next hourly run using available USD cash (max 2 open positions: ETH + BTC).',
         color: '#16A34A',
       };
     }
-    if (signal.confidence >= 0.60) {
-      return {
-        text: `Confidence ${Math.round(signal.confidence * 100)}% — below the 80% auto-execute threshold. Bot is watching but will not trade yet.`,
-        color: '#D97706',
-      };
-    }
     return {
-      text: `Confidence ${Math.round(signal.confidence * 100)}% — too low. Bot is monitoring for a stronger setup.`,
-      color: '#C0C0C0',
+      text: `Confidence ${Math.round(signal.confidence * 100)}% — below the 65% minimum threshold. Signal is too weak to trade.`,
+      color: '#D97706',
     };
   }
 
