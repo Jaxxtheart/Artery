@@ -20,7 +20,7 @@ export default function OpenPositions({ positions = [], onClosePosition }) {
           Open Positions
         </h2>
         <span style={{ background: 'rgba(255,90,95,0.08)', color: '#FF5A5F', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 }}>
-          {positions.length} / 4
+          {positions.length} / 2
         </span>
       </div>
 

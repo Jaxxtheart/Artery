@@ -44,9 +44,22 @@ module.exports = async function handler(req, res) {
       const coinbase = createCoinbaseClient();
       const currentPrice = await coinbase.getProductPrice(position.symbol);
       const closeSide = position.side === 'BUY' ? 'SELL' : 'BUY';
-      const sizeUSD = position.size * currentPrice;
 
-      await coinbase.placeOrder(position.symbol, closeSide, sizeUSD);
+      // SELL uses base_size (crypto units) — position.size is already in crypto units
+      const productDetails = await coinbase.getProductDetails(position.symbol).catch(() => ({}));
+      const baseIncrement  = productDetails.base_increment || '0.00000001';
+      const decimals = (baseIncrement.toString().split('.')[1] || '').length;
+      const sellSize = parseFloat((position.size * 0.999).toFixed(decimals));
+
+      const order = await coinbase.placeOrder(position.symbol, closeSide, sellSize);
+      const orderId = order.success_response?.order_id || order.order_id;
+      const orderSuccess = !!(order.success || orderId);
+
+      if (!orderSuccess) {
+        const cb = order.error_response || {};
+        const reason = cb.preview_failure_reason || cb.new_order_failure_reason || cb.message || cb.error || JSON.stringify(order);
+        return res.status(400).json({ error: `Coinbase order failed — position NOT closed: ${reason}`, details: order });
+      }
 
       // Update position in DB
       const pnlUsd = (currentPrice - position.entry_price) * position.size;
