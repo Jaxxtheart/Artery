@@ -1,0 +1,27 @@
+services:
+  - type: worker
+    name: artery-signal-engine
+    runtime: python
+    rootDir: signal_engine
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    plan: free
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: COINBASE_API_KEY
+        sync: false
+      - key: COINBASE_API_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: GLASSNODE_API_KEY
+        sync: false
+      - key: CRYPTOQUANT_API_KEY
+        sync: false
+      - key: INITIAL_CAPITAL
+        value: "1441"
+      - key: LOG_LEVEL
+        value: "INFO"
