@@ -10,79 +10,97 @@ function makeReq(overrides = {}) {
     method:  'POST',
     headers: {},
     body:    {},
+    query:   {},
     ...overrides,
   };
 }
 
 function makeRes() {
-  const res = { statusCode: 200, _body: null };
-  res.status = function (code) { res.statusCode = code; return res; };
-  res.json   = function (body) { res._body = body; return res; };
-  res.end    = function ()     { return res; };
+  const res = { statusCode: 200, _body: null, _headers: {} };
+  res.status    = function (code) { res.statusCode = code; return res; };
+  res.json      = function (body) { res._body = body; return res; };
+  res.end       = function ()     { return res; };
+  res.setHeader = function (k, v) { res._headers[k] = v; return res; };
   return res;
 }
 
 // ── Supabase chain mock ───────────────────────────────────────────────────────
 //
 // Returns a chainable object that is also directly awaitable.
-// Terminal calls (insert, upsert, single) return Promises.
-// Chained calls (select, update, eq, gte, limit) return `this`.
+// Terminal async calls: insert(), single(), maybeSingle()
+// Chainable (return `this`): select, update, upsert, delete, eq, neq, gte,
+//                            limit, order
 // Awaiting the chain itself resolves to { data, error, count }.
+//
+// Tracked call arrays exposed on the chain (for test assertions):
+//   _insertCalls   — payloads passed to insert()
+//   _updateCalls   — payloads passed to update()
+//   _upsertCalls   — payloads passed to upsert()
 
 function makeChain(opts = {}) {
+  const _insertCalls = [];
+  const _updateCalls = [];
+  const _upsertCalls = [];
+
   const result = {
     data:  opts.data  !== undefined ? opts.data  : [],
     error: opts.error !== undefined ? opts.error : null,
     count: opts.count !== undefined ? opts.count : 0,
   };
 
-  // Track inserts separately so tests can inspect them
-  const insertCalls = [];
-
   const chain = {
-    _insertCalls: insertCalls,
+    _insertCalls,
+    _updateCalls,
+    _upsertCalls,
 
-    select: function () { return this; },
-    update: function () { return this; },
-    eq:     function () { return this; },
-    gte:    function () { return this; },
-    limit:  function () { return this; },
+    // ── Chainable (no-op, return this) ───────────────────────────────────
+    select: function ()         { return this; },
+    eq:     function ()         { return this; },
+    neq:    function ()         { return this; },
+    gte:    function ()         { return this; },
+    limit:  function ()         { return this; },
+    order:  function ()         { return this; },
+    delete: function ()         { return this; },
 
+    // ── Chainable + tracking ─────────────────────────────────────────────
+    update: function (payload)  { _updateCalls.push(payload); return this; },
+    upsert: function (payload)  { _upsertCalls.push(payload); return this; },
+
+    // ── Async terminals ──────────────────────────────────────────────────
     insert: async function (payload) {
-      insertCalls.push(payload);
+      _insertCalls.push(payload);
       return opts.insertResult || { data: null, error: opts.insertError || null };
     },
 
-    upsert: async function () {
-      return { data: null, error: null };
-    },
-
     single: async function () {
-      return opts.singleResult || { data: null, error: null };
+      if (opts.singleResult !== undefined) return opts.singleResult;
+      const row = Array.isArray(result.data) ? (result.data[0] || null) : result.data;
+      return { data: row, error: result.error };
     },
 
-    // Makes the chain directly awaitable (for calls that don't end in insert/single)
-    then: function (resolve, reject) {
-      return Promise.resolve(result).then(resolve, reject);
+    maybeSingle: async function () {
+      if (opts.maybeSingleResult !== undefined) return opts.maybeSingleResult;
+      const row = Array.isArray(result.data) ? (result.data[0] || null) : result.data;
+      return { data: row, error: null };
     },
-    catch: function (fn) {
-      return Promise.resolve(result).catch(fn);
-    },
+
+    // ── Awaitable chain (for queries that don't end in a terminal) ───────
+    then:  function (resolve, reject) { return Promise.resolve(result).then(resolve, reject); },
+    catch: function (fn)              { return Promise.resolve(result).catch(fn); },
   };
 
   return chain;
 }
 
 // Build a full supabase mock.
-// `tableConfigs` maps table names to makeChain options; unlisted tables use defaults.
+// `tableConfigs` maps table name → makeChain options; unlisted tables use defaults.
 //
-// Returns an object shaped exactly like the module exports of lib/supabase:
-//   { supabase: { from }, chains }
+// Returns an object shaped exactly like lib/supabase module exports:
+//   { supabase: { from }, chains, getAllApplications? }
 //
-// Pass the whole return value to loadHandler as the 'lib/supabase' mock so the
-// handler receives the correct { supabase } destructure.  Access chains via the
-// returned object's `.chains` property.
-function makeSupabase(tableConfigs = {}) {
+// Pass the whole return value to loadHandler as the 'lib/supabase' mock.
+// Access tracked calls via the returned object's `.chains` property.
+function makeSupabase(tableConfigs = {}, extras = {}) {
   const chains = {};
 
   function from(table) {
@@ -92,10 +110,10 @@ function makeSupabase(tableConfigs = {}) {
     return chains[table];
   }
 
-  // Shaped like lib/supabase module exports
   return {
     supabase: { from },
-    chains,          // extra — ignored by handler, used by tests
+    chains,
+    ...extras,
   };
 }
 
@@ -106,7 +124,6 @@ function makeSupabase(tableConfigs = {}) {
 // Returns the loaded handler function.
 
 function loadHandler(handlerRelPath, mockMap) {
-  // Inject each mock into the require cache
   for (const [relPath, mockExports] of Object.entries(mockMap)) {
     const resolved = require.resolve(path.join(ROOT, relPath));
     require.cache[resolved] = {
@@ -116,13 +133,10 @@ function loadHandler(handlerRelPath, mockMap) {
     };
   }
 
-  // Force-reload the handler so it picks up the fresh mocks
   const handlerAbs = require.resolve(path.join(ROOT, handlerRelPath));
   delete require.cache[handlerAbs];
 
   const handler = require(handlerAbs);
-
-  // Remove the handler from cache so the next test gets a fresh copy too
   delete require.cache[handlerAbs];
 
   return handler;

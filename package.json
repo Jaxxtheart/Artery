@@ -9,7 +9,10 @@
     "dev:full": "concurrently \"npm run dev\" \"npm run server\"",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test --test-reporter spec tests/coinbase-client.test.js tests/cron-daily-trade.test.js tests/execute-trade.test.js"
+    "test": "node --test --test-reporter spec tests/coinbase-client.test.js tests/cron-daily-trade.test.js tests/execute-trade.test.js tests/health.test.js tests/trading-positions.test.js tests/trading-status.test.js tests/trading-signals.test.js tests/holdings-cost-basis.test.js tests/applications.test.js",
+    "test:report": "node --test --test-reporter tap tests/*.test.js | node scripts/save-report.js /dev/stdin test-reports/closure-latest.json",
+    "pre-deploy": "./scripts/pre-deploy.sh",
+    "install-hooks": "./scripts/install-hooks.sh"
   },
   "dependencies": {
     "react": "^18.2.0",

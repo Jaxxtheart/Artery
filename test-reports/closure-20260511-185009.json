@@ -1,0 +1,124 @@
+{
+  "timestamp": "2026-05-11T18:50:09Z",
+  "commit": "e0ff206",
+  "branch": "claude/strategy-optimisations",
+  "status": "PASS",
+  "summary": {
+    "total": 22,
+    "passed": 22,
+    "failed": 0,
+    "skipped": 0
+  },
+  "tests": [
+    {
+      "id": 1,
+      "name": "GET /api/applications/list",
+      "status": "PASS"
+    },
+    {
+      "id": 2,
+      "name": "GET /api/applications/get",
+      "status": "PASS"
+    },
+    {
+      "id": 3,
+      "name": "CoinbaseClient.placeOrder — quote_size precision",
+      "status": "PASS"
+    },
+    {
+      "id": 4,
+      "name": "CoinbaseClient.placeOrder — SELL base_size",
+      "status": "PASS"
+    },
+    {
+      "id": 5,
+      "name": "CoinbaseClient.placeOrder — request structure",
+      "status": "PASS"
+    },
+    {
+      "id": 6,
+      "name": "cron: authentication",
+      "status": "PASS"
+    },
+    {
+      "id": 7,
+      "name": "cron: order success guard (phantom-trade bug fix)",
+      "status": "PASS"
+    },
+    {
+      "id": 8,
+      "name": "cron: signal filtering",
+      "status": "PASS"
+    },
+    {
+      "id": 9,
+      "name": "execute: authentication",
+      "status": "PASS"
+    },
+    {
+      "id": 10,
+      "name": "execute: dry_run (Test Order button)",
+      "status": "PASS"
+    },
+    {
+      "id": 11,
+      "name": "execute: BUY — Coinbase order succeeds",
+      "status": "PASS"
+    },
+    {
+      "id": 12,
+      "name": "execute: BUY — Coinbase order fails",
+      "status": "PASS"
+    },
+    {
+      "id": 13,
+      "name": "execute: SELL",
+      "status": "PASS"
+    },
+    {
+      "id": 14,
+      "name": "GET /api/health",
+      "status": "PASS"
+    },
+    {
+      "id": 15,
+      "name": "GET /api/holdings/cost-basis",
+      "status": "PASS"
+    },
+    {
+      "id": 16,
+      "name": "POST /api/holdings/cost-basis",
+      "status": "PASS"
+    },
+    {
+      "id": 17,
+      "name": "DELETE /api/holdings/cost-basis",
+      "status": "PASS"
+    },
+    {
+      "id": 18,
+      "name": "GET /api/trading/positions",
+      "status": "PASS"
+    },
+    {
+      "id": 19,
+      "name": "DELETE /api/trading/positions — authentication",
+      "status": "PASS"
+    },
+    {
+      "id": 20,
+      "name": "DELETE /api/trading/positions — phantom-sell bug fix",
+      "status": "PASS"
+    },
+    {
+      "id": 21,
+      "name": "GET /api/trading/signals",
+      "status": "PASS"
+    },
+    {
+      "id": 22,
+      "name": "GET /api/trading/status",
+      "status": "PASS"
+    }
+  ]
+}
