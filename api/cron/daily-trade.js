@@ -13,7 +13,8 @@ const {
   calculateStopLevels,
   checkRiskLimits,
   shouldClosePosition,
-  MIN_CONFIDENCE
+  MIN_CONFIDENCE,
+  STOP_LOSS_PCT
 } = require('../../lib/trading/risk-manager');
 
 module.exports = async function handler(req, res) {
@@ -50,7 +51,7 @@ module.exports = async function handler(req, res) {
     let openPositions = [];
     let closedThisCycle = 0;
     if (supabase) {
-      const { data } = await supabase.from('positions').select('*').eq('status', 'OPEN');
+      const { data } = await supabase.from('positions').select('*, stop_order_id').eq('status', 'OPEN');
       openPositions = data || [];
     }
 
@@ -71,6 +72,16 @@ module.exports = async function handler(req, res) {
           const sellSize = parseFloat((position.size * 0.999).toFixed(decimals));
 
           await coinbase.placeOrder(position.symbol, 'SELL', sellSize);
+
+          // Cancel exchange stop-limit order so it doesn't double-sell
+          if (position.stop_order_id) {
+            try {
+              await coinbase.cancelOrder(position.stop_order_id);
+              log(`Cancelled exchange stop order ${position.stop_order_id} for ${position.symbol}`);
+            } catch (cancelErr) {
+              log(`Note: could not cancel stop order ${position.stop_order_id}: ${cancelErr.message}`);
+            }
+          }
 
           const durationHours = (Date.now() - new Date(position.entry_time).getTime()) / 3600000;
           const now = new Date().toISOString();
@@ -219,18 +230,35 @@ module.exports = async function handler(req, res) {
           const currentPrice = await coinbase.getProductPrice(signal.symbol);
           const { stopLoss, takeProfit } = calculateStopLevels(currentPrice, 'BUY');
 
+          // Place exchange-level stop-limit order immediately — enforced by Coinbase
+          // regardless of cron health, preventing stop-loss breaches between hourly runs
+          const cryptoUnits = parseFloat((positionSize / currentPrice).toFixed(8));
+          const exchangeStopPrice  = currentPrice * (1 - STOP_LOSS_PCT);
+          const exchangeLimitPrice = currentPrice * (1 - STOP_LOSS_PCT - 0.002); // 0.2% below stop to guarantee fill
+          let stopOrderId = null;
+          try {
+            const stopOrder = await coinbase.placeStopLimitSell(signal.symbol, cryptoUnits, exchangeStopPrice, exchangeLimitPrice);
+            stopOrderId = stopOrder.success_response?.order_id || stopOrder.order_id;
+            log(`Exchange stop order placed for ${signal.symbol}: stop $${exchangeStopPrice.toFixed(2)}, limit $${exchangeLimitPrice.toFixed(2)}, orderId ${stopOrderId}`);
+          } catch (stopErr) {
+            log(`Warning: could not place exchange stop order for ${signal.symbol}: ${stopErr.message}`);
+          }
+
           if (supabase) {
-            await supabase.from('positions').insert({
+            const positionRecord = {
               symbol: signal.symbol,
               side: 'BUY',
               entry_price: currentPrice,
-              size: positionSize / currentPrice,
+              size: cryptoUnits,
               strategy: signal.strategy,
               stop_loss: stopLoss,
               take_profit: takeProfit,
               status: 'OPEN',
-              coinbase_order_id: orderId
-            });
+              coinbase_order_id: orderId,
+            };
+            if (stopOrderId) positionRecord.stop_order_id = stopOrderId;
+
+            await supabase.from('positions').insert(positionRecord);
 
             await supabase.from('signals').update({ executed: true })
               .eq('symbol', signal.symbol).eq('signal', 'BUY').eq('executed', false);
