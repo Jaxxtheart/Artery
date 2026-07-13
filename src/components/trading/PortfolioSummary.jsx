@@ -1,7 +1,6 @@
 import { TrendingUp, TrendingDown, DollarSign, Target } from 'lucide-react';
 
-const INITIAL_CAPITAL = 1441;
-const TARGET = 2441;
+const PROFIT_GOAL = 1000; // target = initial capital + this
 
 function MetricCard({ label, value, subValue, subColor, icon: Icon, iconColor }) {
   return (
@@ -27,8 +26,9 @@ export default function PortfolioSummary({ portfolio }) {
     );
   }
 
-  const { totalValue = 0, initialCapital = INITIAL_CAPITAL, totalPnL = 0, totalPnLPct = 0, liveAssets = [] } = portfolio;
-  const progressPct = Math.min((totalValue / TARGET) * 100, 100);
+  const { totalValue = 0, initialCapital = 0, totalPnL = 0, totalPnLPct = 0, liveAssets = [] } = portfolio;
+  const target = initialCapital + PROFIT_GOAL;
+  const progressPct = target > 0 ? Math.min((totalValue / target) * 100, 100) : 0;
   const isProfitable = totalPnL >= 0;
   const fmt = (v) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v);
 
@@ -55,14 +55,14 @@ export default function PortfolioSummary({ portfolio }) {
         />
         <MetricCard
           label="Initial Capital"
-          value={fmt(INITIAL_CAPITAL)}
+          value={fmt(initialCapital)}
           subValue="Starting amount"
           icon={DollarSign}
           iconColor="#C0C0C0"
         />
         <MetricCard
           label="Target Profit"
-          value={fmt(TARGET)}
+          value={fmt(target)}
           subValue={`${progressPct.toFixed(1)}% reached`}
           icon={Target}
           iconColor="#FF5A5F"
@@ -83,8 +83,8 @@ export default function PortfolioSummary({ portfolio }) {
           }} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#C0C0C0', marginTop: 4 }}>
-          <span>{fmt(INITIAL_CAPITAL)}</span>
-          <span>{fmt(TARGET)}</span>
+          <span>{fmt(initialCapital)}</span>
+          <span>{fmt(target)}</span>
         </div>
       </div>
 

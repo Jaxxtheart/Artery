@@ -256,7 +256,7 @@ export default function Trading() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
-              <LiveChart snapshots={status?.snapshots || []} />
+              <LiveChart snapshots={status?.snapshots || []} initialCapital={status?.portfolio?.initialCapital || 0} />
             </div>
             <div>
               <StrategyControls riskMetrics={status?.riskMetrics} onRunCron={() => fetchStatus()} />

@@ -4,38 +4,40 @@ import {
   ResponsiveContainer, ReferenceLine
 } from 'recharts';
 
-const INITIAL_CAPITAL = 1441;
+const PROFIT_GOAL = 1000; // target line = initial capital + this
 
-function CustomTooltip({ active, payload, label }) {
+function CustomTooltip({ active, payload, label, initialCapital }) {
   if (!active || !payload?.length) return null;
   const value = payload[0]?.value;
-  const pnl = value - INITIAL_CAPITAL;
+  const pnl = value - initialCapital;
+  const pnlPct = initialCapital > 0 ? (pnl / initialCapital) * 100 : 0;
   return (
     <div style={{ background: '#fff', border: '1px solid #EBEBEA', borderRadius: 8, padding: '8px 12px', fontSize: 11, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
       <div style={{ color: '#A0A0A0', marginBottom: 4 }}>{label}</div>
       <div style={{ fontWeight: 600, color: '#1A1A1A' }}>${value?.toFixed(2)}</div>
       <div style={{ color: pnl >= 0 ? '#16A34A' : '#DC2626' }}>
-        {pnl >= 0 ? '+' : ''}${pnl?.toFixed(2)} ({((pnl / INITIAL_CAPITAL) * 100).toFixed(2)}%)
+        {pnl >= 0 ? '+' : ''}${pnl?.toFixed(2)} ({pnlPct.toFixed(2)}%)
       </div>
     </div>
   );
 }
 
-export default function LiveChart({ snapshots = [] }) {
+export default function LiveChart({ snapshots = [], initialCapital = 0 }) {
   const [chartData, setChartData] = useState([]);
 
   useEffect(() => {
     if (snapshots.length === 0) {
       const now = new Date();
+      const base = initialCapital || 1000;
       const placeholder = Array.from({ length: 14 }, (_, i) => {
         const date = new Date(now);
         date.setDate(date.getDate() - (13 - i));
         return {
           date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          value: INITIAL_CAPITAL + (Math.random() - 0.3) * 100,
+          value: base + (Math.random() - 0.3) * 100,
         };
       });
-      placeholder[placeholder.length - 1].value = INITIAL_CAPITAL;
+      placeholder[placeholder.length - 1].value = base;
       setChartData(placeholder);
     } else {
       const sorted = [...snapshots].sort((a, b) => new Date(a.snapshot_date) - new Date(b.snapshot_date));
@@ -44,15 +46,15 @@ export default function LiveChart({ snapshots = [] }) {
         value: parseFloat(s.total_value),
       })));
     }
-  }, [snapshots]);
+  }, [snapshots, initialCapital]);
 
-  const currentValue = chartData[chartData.length - 1]?.value || INITIAL_CAPITAL;
-  const pnl = currentValue - INITIAL_CAPITAL;
-  const pnlPct = (pnl / INITIAL_CAPITAL) * 100;
+  const currentValue = chartData[chartData.length - 1]?.value || initialCapital;
+  const pnl = currentValue - initialCapital;
+  const pnlPct = initialCapital > 0 ? (pnl / initialCapital) * 100 : 0;
   const isPositive = pnl >= 0;
 
-  const minValue = Math.min(...chartData.map(d => d.value), INITIAL_CAPITAL) * 0.98;
-  const maxValue = Math.max(...chartData.map(d => d.value), INITIAL_CAPITAL) * 1.02;
+  const minValue = Math.min(...chartData.map(d => d.value), initialCapital) * 0.98;
+  const maxValue = Math.max(...chartData.map(d => d.value), initialCapital) * 1.02;
 
   const lineColor = isPositive ? '#FF5A5F' : '#DC2626';
 
@@ -97,15 +99,15 @@ export default function LiveChart({ snapshots = [] }) {
             tickFormatter={v => `$${v.toFixed(0)}`}
             width={55}
           />
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip initialCapital={initialCapital} />} />
           <ReferenceLine
-            y={INITIAL_CAPITAL}
+            y={initialCapital}
             stroke="#EBEBEA"
             strokeDasharray="4 4"
             label={{ value: 'Entry', fill: '#C0C0C0', fontSize: 10, position: 'left' }}
           />
           <ReferenceLine
-            y={2441}
+            y={initialCapital + PROFIT_GOAL}
             stroke="#FF5A5F"
             strokeDasharray="4 4"
             strokeOpacity={0.3}

@@ -133,8 +133,12 @@ CREATE TABLE IF NOT EXISTS positions (
   pnl_usd DECIMAL(18, 8),
   pnl_pct DECIMAL(8, 4),
   coinbase_order_id TEXT,
+  stop_order_id TEXT,  -- exchange-level stop-limit order attached to this position
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Migration for existing databases:
+-- ALTER TABLE positions ADD COLUMN IF NOT EXISTS stop_order_id TEXT;
 
 -- Completed trade history
 CREATE TABLE IF NOT EXISTS trade_history (
