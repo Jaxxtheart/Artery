@@ -69,7 +69,10 @@ module.exports = async function handler(req, res) {
       'portfolio_snapshots',
       'strategy_performance',
       'holdings_cost_basis',
-      'signal_executions'
+      'signal_executions',
+      'stock_positions',
+      'stock_trade_history',
+      'stock_signals'
     ];
     const wiped = {};
 

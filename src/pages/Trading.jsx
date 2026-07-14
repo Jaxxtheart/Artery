@@ -10,6 +10,7 @@ import StrategyControls from '../components/trading/StrategyControls';
 import RiskMetrics from '../components/trading/RiskMetrics';
 import HoldingsAnalysis from '../components/trading/HoldingsAnalysis';
 import OnChainSignals from '../components/trading/OnChainSignals';
+import StockTrading from '../components/trading/StockTrading';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 const REFRESH_INTERVAL = 30000;
@@ -271,6 +272,9 @@ export default function Trading() {
 
           {/* Row 4: On-Chain Signal Engine + Backtesting */}
           <OnChainSignals />
+
+          {/* Row 5: Stock Trading (Alpaca paper) */}
+          <StockTrading />
 
           {/* Row 5: Open Positions */}
           <OpenPositions positions={status?.openPositions || []} onClosePosition={handleClosePosition} />

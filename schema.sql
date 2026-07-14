@@ -262,3 +262,62 @@ CREATE TRIGGER trigger_update_strategy_performance
   AFTER INSERT ON trade_history
   FOR EACH ROW
   EXECUTE FUNCTION update_strategy_performance();
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Stock trading (Alpaca) — separate tables so PAPER trading results never
+-- mix with real crypto P&L. Run this block in Supabase to enable stocks.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS stock_positions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  side TEXT NOT NULL DEFAULT 'BUY' CHECK (side IN ('BUY', 'SELL')),
+  qty DECIMAL(18, 8) NOT NULL,
+  entry_price DECIMAL(18, 8) NOT NULL,
+  strategy TEXT,
+  stop_loss DECIMAL(18, 8),
+  take_profit DECIMAL(18, 8),
+  status TEXT DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'CLOSED')),
+  alpaca_order_id TEXT,
+  entry_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  exit_time TIMESTAMP WITH TIME ZONE,
+  exit_price DECIMAL(18, 8),
+  pnl_usd DECIMAL(18, 8),
+  pnl_pct DECIMAL(8, 4),
+  paper BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS stock_trade_history (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  side TEXT NOT NULL,
+  entry_price DECIMAL(18, 8),
+  exit_price DECIMAL(18, 8),
+  qty DECIMAL(18, 8),
+  pnl_usd DECIMAL(18, 8),
+  pnl_pct DECIMAL(8, 4),
+  strategy TEXT,
+  reason TEXT,
+  duration_hours DECIMAL(10, 2),
+  entry_time TIMESTAMP WITH TIME ZONE,
+  exit_time TIMESTAMP WITH TIME ZONE,
+  paper BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS stock_signals (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  symbol TEXT NOT NULL,
+  signal TEXT NOT NULL,
+  confidence DECIMAL(5, 4),
+  strategy TEXT,
+  price DECIMAL(18, 8),
+  reason TEXT,
+  executed BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_stock_positions_status ON stock_positions(status);
+CREATE INDEX IF NOT EXISTS idx_stock_trade_history_exit ON stock_trade_history(exit_time DESC);
+CREATE INDEX IF NOT EXISTS idx_stock_signals_created ON stock_signals(created_at DESC);
