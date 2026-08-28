@@ -14,7 +14,16 @@ The system automatically evaluates startup applications and generates:
 - Current valuation
 - 3-year and 5-year projected valuations
 - Strengths and concerns analysis
+- Flags for claims worth a human double-check before trusting them
 - Actionable next steps
+
+> **v2 note:** the scoring logic was reworked to reduce reliance on cheap-to-fake
+> proxies (raw text length, keyword stuffing, "has a LinkedIn URL") in favor of
+> genuine specificity, structured fields, and plausibility checks. See "Design
+> Philosophy" below and the comments in `api/scoringEngine.cjs` for the reasoning
+> behind each category's logic. `backend/services/scoringEngine.js` now re-exports
+> that same file rather than maintaining a second copy, so local dev and production
+> can't score applications differently by accident.
 
 ## Evaluation Framework
 
@@ -47,11 +56,20 @@ The system automatically evaluates startup applications and generates:
 **Why it matters:**
 Y Combinator famously says "We invest in people, not ideas." A strong, committed team with relevant experience is the #1 predictor of startup success.
 
-**Scoring logic:**
-- **LinkedIn**: Full profile with company domain = 30 pts, partial = 15 pts
-- **Email**: Custom domain = 20 pts (shows commitment), free email = 10 pts
-- **Team Size**: 10+ people = 30 pts, 5-9 = 25 pts, 3-4 = 20 pts, 2 = 15 pts, solo = 5 pts
-- **Completeness**: Full info (name, phone, email, LinkedIn) = 20 pts
+**Scoring logic (v2):**
+- **LinkedIn** (max 20 pts): must be a recognizable `linkedin.com/in/...` or `/company/...`
+  URL, not just the bare domain — a copy-pasted homepage link no longer scores like a
+  real profile. Recognizable profile = 20 pts, some other link = 8 pts.
+- **Email** (max 10 pts): custom domain = 10 pts, free provider (gmail/yahoo/etc.) = 7 pts.
+  Deliberately a small gap — YC and most serious accelerators don't treat a gmail
+  address as a real red flag at this stage, so the old 2x swing (20 vs 10) overweighted
+  a weak signal.
+- **Team Size** (max 30 pts): 10+ = 30, 5-9 = 25, 3-4 = 20, 2 = 15, solo = 6.
+- **Completeness** (max 20 pts): full contact info = 20 pts, partial = 8 pts.
+- **Stage consistency** (max 20 pts, new): does the claimed team size make sense for
+  the claimed stage (e.g. 1-3 people at "idea", 5-50 at "scaling")? A consistent
+  combination scores full marks; an oversized team for an early stage scores low *and*
+  raises a flag — closing the incentive to simply claim a bigger team than you have.
 
 ---
 
@@ -83,6 +101,18 @@ Traction is the best signal of product-market fit. Actual metrics beat projectio
   - 20%+ monthly = 30 pts
   - 100%+ yearly = 20 pts
 
+**v2 fix — number parsing:** the original implementation extracted digits with
+`text.match(/\d+/g).join('')`, which only worked by coincidence for comma-grouped
+figures like `$85,000` (always 3-digit groups) and silently mis-scored any shorthand —
+`$1.2M` parsed as `12`, a two-orders-of-magnitude error that would have wrongly tanked
+a strong applicant's traction score. `parseAmount()` now correctly resolves
+k/thousand/m/million/b/billion suffixes and decimals.
+
+**v2 addition — verifiability nudge:** a large revenue or user claim (≥$50k or ≥10k
+users) with no pitch deck attached takes a small, capped deduction (-8) and raises a
+flag rather than being silently trusted at face value or silently ignored — the claim
+still counts, but due diligence is told exactly what to check.
+
 ---
 
 ### 3. Product-Market Fit (15% weight)
@@ -95,19 +125,22 @@ Traction is the best signal of product-market fit. Actual metrics beat projectio
 **Why it matters:**
 Marc Andreessen says PMF is "being in a good market with a product that can satisfy that market." Clear articulation of problem-solution fit is essential.
 
-**Scoring logic:**
-- **Problem Statement**:
-  - 200+ chars with specific examples = 35 pts
-  - 100-200 chars = 25 pts
-  - 50-100 chars = 15 pts
-- **Solution**:
-  - 200+ chars with differentiation = 35 pts
-  - 100-200 chars = 25 pts
-  - 50-100 chars = 15 pts
-- **Impact**:
-  - 200+ chars with measurable outcomes = 30 pts
-  - 100-200 chars = 20 pts
-  - 50-100 chars = 10 pts
+**Scoring logic (v2):** each of Problem/Solution/Impact runs through the same
+narrative scorer:
+- 200+ chars **and** genuinely specific (contains a real number/$/% across 30+ words)
+  = full points
+- 150+ chars and specific = 85% of max
+- 100+ chars (specificity not required) = 65% of max
+- 50+ chars = 40% of max
+- Generic filler phrases ("we provide", "platform for", "service that") are
+  subtracted, per phrase found — padding a narrative with boilerplate no longer
+  passes as substance.
+
+Previously, hitting the 200-char threshold *with any single number or `$` anywhere in
+the text* was enough for full marks — so two sentences of filler plus one stray digit
+scored identically to a specific, well-reasoned pitch. The gate is now stricter and the
+top bucket requires 200+ chars *and* genuine specificity together, with intermediate
+buckets for text that's substantial but not fully specific.
 
 ---
 
@@ -147,44 +180,53 @@ Silicon Valley investors look for billion-dollar markets. Market size determines
 ### 5. Innovation (12% weight)
 
 **What we evaluate:**
-- Innovation keywords and signals (50 baseline + bonuses)
-- Differentiation from existing solutions
+- Technology/differentiation signals (baseline 50 + capped bonuses)
+- Genuine comparative language (does the founder explain *how* they're different?)
+- Hype-word density (penalized, not rewarded)
 
 **Why it matters:**
 Peter Thiel asks "What important truth do very few people agree with you on?" True innovation creates 10x improvements, not 10% improvements.
 
-**Scoring logic:**
-- **Innovation Keywords** (+10 pts each):
-  - AI, machine learning, blockchain
-  - "Disrupting", "revolutionary", "first"
-  - "Unique", "patent", "proprietary"
-  - "Breakthrough", "novel"
-- **Generic Penalty** (-5 pts each):
-  - "We provide", "platform for"
-  - Overly generic descriptions
+**Scoring logic (v2):**
+- **Tech signals** (ai, machine learning, blockchain, patent, proprietary, algorithm,
+  automation): +5 pts each, capped at +20 total (was uncapped +10 each, up to +50)
+- **Differentiation language** (unlike, compared to, instead of, competitors,
+  alternative to, whereas, in contrast): +8 pts each, capped at +24 — this is new, and
+  is the strongest positive signal: it means the founder actually explained *why*
+  they're different, not just asserted that they are.
+- **Hype-word density penalty** (revolutionary, disrupting, game-changing,
+  breakthrough, unique, novel, innovative, world-class, cutting-edge): once these
+  words exceed ~2% of the text's word count, the excess density is subtracted, up to
+  -30. This directly inverts the old behavior, where stacking these same words was the
+  single easiest way to inflate this category — a two-sentence pitch stuffed with
+  "revolutionary, breakthrough, unique, novel, proprietary" could previously add up to
+  60 points regardless of whether any of it was true.
+- **Generic Penalty** (-5 pts each): "we provide", "platform for", unchanged.
 
 ---
 
 ### 6. African Impact (10% weight)
 
 **What we evaluate:**
-- African market focus (40 points)
-- Scale of impact (35 points)
-- Local founder advantage (25 points)
+- Verified geography — the structured country field (35 points)
+- Local-relevance language, capped and diminishing-returns (25 points)
+- Impact scale, gated on genuine specificity (30 points)
 
 **Why it matters:**
 Harambeans focuses on Africa-specific problems and opportunities. Local founders have context advantage and commitment to the continent.
 
-**Scoring logic:**
-- **African Focus** (+8 pts each keyword):
-  - Geographic: Africa, Kenya, Nigeria, Ghana, Rwanda, etc.
-  - Problem areas: Financial inclusion, unbanked, informal sector, rural, SMEs
-- **Impact Scale** (+7 pts each):
-  - Keywords: Million, thousands, communities, scale, mass
-  - Social impact: Underserved, marginalized, employment, jobs
-- **Local Founder**:
-  - Operating in African country: 25 pts
-  - Other: 10 pts (benefit of doubt)
+**Scoring logic (v2):** the country dropdown is a structured field — much harder to
+game than prose — so it's now the primary signal (35 pts for one of our core African
+markets, 15 for other specified geography, 5 for none) rather than being folded into a
+25-point bucket alongside freeform keyword mentions.
+- **Local-relevance language** (informal sector, financial inclusion, unbanked, rural,
+  smallholder, last-mile, healthcare access, education gap, SME): +5 pts per distinct
+  concept mentioned, capped at 25 (was +8 each up to 40) — stacking the same keyword
+  repeatedly no longer compounds indefinitely.
+- **Impact scale** (30 pts): requires the impact statement to actually contain a real
+  number or metric, not merely a scale-sounding word like "thousands" or "communities"
+  — 30 pts if genuinely specific, 12 pts for a substantial-but-vague statement, 0
+  otherwise.
 
 ---
 
@@ -198,19 +240,17 @@ Harambeans focuses on Africa-specific problems and opportunities. Local founders
 **Why it matters:**
 Harambeans values sustainable, long-term businesses over flash-in-the-pan hype. Can this business survive and thrive?
 
-**Scoring logic:**
-- **Revenue Model**:
-  - Already generating revenue: 25 pts
-  - Clear use of funds (100+ chars): 15 pts
-- **Runway**:
-  - 18+ months: 30 pts
-  - 12-18 months: 25 pts
-  - 6-12 months: 20 pts
-  - <6 months: 10 pts
-- **Funding Fit** (target: $15k):
-  - $10k-$25k: 30 pts (perfect fit)
-  - $5k-$50k: 20 pts (reasonable)
-  - Outside range: 10 pts
+**Scoring logic (v2):**
+- **Revenue Model** (35 pts max): already generating revenue = 20 pts; a use-of-funds
+  plan that's both 100+ chars *and* itemized with real numbers = 15 pts (was: length
+  alone) — "we'll use the money for growth and stuff" no longer scores the same as an
+  actual line-item budget.
+- **Runway** (30 pts): 18+ months = 30, 12-18 = 25, 6-12 = 20, <6 = 10.
+- **Funding Fit** (25 pts, target $15k): $10k-$25k = 25 (perfect fit), $5k-$50k = 17
+  (reasonable), outside range = 8.
+- **Corroborating evidence** (10 pts, new): a pitch deck was attached. A deck can
+  still be low-quality, but producing one costs real effort in a way that typing more
+  words in a textarea doesn't — a small, honest signal rather than a strong one.
 
 ---
 
@@ -356,6 +396,10 @@ The system generates a comprehensive report including:
 ### 4. Qualitative Analysis
 - **Strengths**: Top 3 performing categories with descriptions
 - **Concerns**: Areas scoring below 50 with improvement suggestions
+- **Flags** (v2, new): claims worth a human double-check before trusting them —
+  e.g. a team size implausible for the claimed stage, or a large traction claim with
+  no supporting pitch deck. Separate from the score itself: an application can score
+  well *and* carry a flag, because the flag is about verifiability, not quality.
 
 ### 5. Next Steps
 - Customized action items based on score tier
@@ -471,6 +515,6 @@ For questions about the scoring system:
 
 ---
 
-**Version**: 1.0.0
-**Last Updated**: January 2026
+**Version**: 2.0.0
+**Last Updated**: August 2026
 **Maintained by**: Artery Capital Team
