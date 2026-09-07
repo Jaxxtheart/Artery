@@ -157,6 +157,70 @@ here requires any of these repos to change.
 
 ## Log
 
+### 2026-09-07 — cuedesign.space, "Weekly Drop" series (site reference)
+- **URL:** https://cuedesign.space/ — surfaced via a screen-recording tweet
+  from [@Alok619308](https://x.com/Alok619308) captioned "Page Transition
+  Series." Cue's own positioning (per search) is "best-in-class components,"
+  drawing on "patterns from 95 design systems."
+- **Category:** Component/interaction gallery (a curated index of named,
+  reusable motion patterns — closer to a catalog than a single product)
+- **Status:** **Reviewed directly** — the user supplied 5 in-app
+  screenshots/recording frames, so this is a real visual audit, not a
+  secondhand description (unlike the jrands.com / pixelorb.studio entries
+  above, which are still pending a live visit).
+- **Takeaways:**
+  - **Type pairing, confirmed at high fidelity:** a bold, high-contrast
+    display serif (the "DROP" wordmark — tight, almost woodtype-heavy
+    verticals, sharp bracketed serifs) paired with a lighter *italic* serif
+    for a secondary word above it ("WEEKLY"), against small-caps,
+    wide-tracked sans-serif "eyebrow" labels (`FRESH INTERACTIONS FOR A
+    MORE EXPRESSIVE WEB.`, `05 / INTERACTION`, `SWIPE TO EXPLORE`). This is
+    a stronger, screenshot-verified version of the editorial-serif +
+    grotesque-label pairing already in §2 — folded into §2.1 below as a
+    named "eyebrow label" pattern.
+  - **Photo-caption convention:** a one-line italic serif caption sits under
+    each large media block, set off by a thin vertical rule on its left
+    edge — reads like a print photo credit/footnote, not a UI microcopy
+    convention. Folded into §2.1.
+  - **Color discipline — chrome vs. content:** the site shell itself is
+    strictly two-tone — warm off-white/cream background (reads roughly
+    `#F0EEE6`), near-black text, thin light-gray hairline rules as the only
+    dividers. All saturated color (the red timber-frame roof photo, a solid
+    blue "Page Transition" card, an orange/red circular preloader, a warm
+    living-room photo) lives *inside* the exhibited work samples, never in
+    the surrounding UI chrome. A clean, reusable rule: **let the content
+    carry the color; keep the frame neutral.** Folded into §3.
+  - **Catalog/index layout:** a numbered two-column grid (01–06), each cell
+    a large media thumbnail over a serif two-line title, separated by
+    hairlines — then each item gets its own detail block repeating a fixed
+    template (category/number eyebrow → two-line serif headline → short
+    tracked-caps pitch, right-aligned → full-width media → italic ruled
+    caption → hairline → next item). Worth citing as a pattern for any
+    future "index of things" page (a components/pattern library, a
+    portfolio, a docs catalog).
+  - **Motion vocabulary (idea bank, not a spec):** the six named
+    interactions shown — *Block Reveal* (scroll-driven parallax with a
+    color-block wipe revealing text line by line), *Ribbon Curtain* and
+    *Obsidian Curtain* (layered full-bleed page-transition curtains),
+    *Four-Colour Circular Wipe Preloader* (sequential circular clip-path
+    reveals), *Cascade Bloom* (pinned hero, center-out image bloom, splitting
+    headline), *Free Fall* (portfolio grid tiles that fall away with
+    rotation/jitter on scroll) — are all *expressive, one-shot* moments, a
+    register more theatrical than §5's product-UI motion rules allow. Rather
+    than changing §5's restraint for product UI, this justifies a new §5.1
+    carve-out: expressive signature motion is fine for a marketing/portfolio
+    **hero moment specifically**, capped at one per page, still gated by
+    `prefers-reduced-motion`.
+  - **Black circular FAB affordance:** a solid black circle with a white
+    arrow, paired with tracked-caps "SWIPE TO EXPLORE" — a clear, minimal
+    "more content this way" affordance worth keeping in mind for any
+    horizontally-scrollable section.
+- **Not taken:** no color/type token values are prescribed here — cream/
+  black is cuedesign.space's brand, not ours. What's folded into the org doc
+  below is structural pattern (pairing logic, layout template, color
+  discipline, motion vocabulary), the same way the internal-precedent audit
+  above extracts patterns rather than copying any one product's palette.
+
 ### 2026-09-07 — Pangram Pangram (foundry)
 - **URL:** https://pangrampangram.com/
 - **Category:** Typography / type foundry

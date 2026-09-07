@@ -1,6 +1,6 @@
 # Org Design System
 
-**Status:** v0.2 — living document
+**Status:** v0.3 — living document
 **Owner:** Jaxxtheart
 **Canonical source:** [`Jaxxtheart/Artery` → `DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md)
 
@@ -79,6 +79,24 @@ production.
 - Self-host font files per project (`.woff2`) rather than hot-linking the
   foundry site. Subset where practical.
 
+### 2.1 Micro-patterns: eyebrows & captions
+
+Confirmed at high fidelity from a direct screenshot review of
+[cuedesign.space](https://cuedesign.space/) (see
+[`design/references.md`](./design/references.md)) — two small, reusable
+text conventions worth adopting anywhere they fit, on marketing/editorial
+pages especially:
+
+- **Eyebrow label:** a short line set in the UI sans, uppercase, wide
+  letter-spacing (~0.15–0.25em), small (12–13px), gray — sits *above* a
+  headline as a category/context tag (`05 / INTERACTION`, `SWIPE TO
+  EXPLORE`). Cheap, consistent way to add hierarchy without adding weight.
+- **Ruled caption:** a one-line caption in the display/editorial face,
+  italic, set below a large media block with a thin vertical rule on its
+  left edge (`border-left: 1px solid var(--ink-300); padding-left: …`) —
+  reads like a print photo credit. Use for a short explanatory line under a
+  hero image, screenshot, or diagram rather than a plain unstyled caption.
+
 ---
 
 ## 3. Color
@@ -107,6 +125,17 @@ primary CTAs, links, active/selected states, key data highlights. Everything
 else stays neutral. Do not introduce a second "brand color" without a
 documented reason (e.g. a semantic red for destructive/loss states in the
 trading tools is allowed because it's functional, not decorative).
+
+**Chrome vs. content:** on any page whose job is to exhibit other things —
+a portfolio, a case-study grid, a components/pattern index, a media
+gallery — keep the surrounding chrome (nav, background, dividers, captions)
+strictly neutral and let color live *inside the exhibited work itself*.
+Confirmed directly from [cuedesign.space](https://cuedesign.space/) (see
+[`design/references.md`](./design/references.md)): its shell is a
+disciplined cream-and-black two-tone, while every saturated color on the
+page belongs to a screenshot or work sample being shown off. This keeps the
+frame from competing with what it's framing, and it's a stronger version of
+the "one accent" rule for any page whose content is itself colorful.
 
 ### 3.3 Semantic colors (functional only, not decorative)
 
@@ -151,6 +180,31 @@ should read as *state*, not compete with brand color.
   shift for text links, subtle scale/opacity/translate for interactive
   cards and buttons — never color alone (accessibility).
 
+### 5.1 Signature moments (marketing/portfolio pages only)
+
+The rules above govern *product UI* — the motion a person interacts with
+repeatedly. A marketing page, case-study, or portfolio hero is allowed one
+more theatrical, one-shot moment that those rules would otherwise forbid:
+a page-transition curtain, a clip-path preloader wipe, a pinned hero that
+blooms open, a grid whose tiles fall away on scroll. [cuedesign.space](https://cuedesign.space/)'s
+"Weekly Drop" catalog (logged in
+[`design/references.md`](./design/references.md)) is a good idea bank of
+named examples in this register — not a spec to copy, since each is
+specific to the site showing it off.
+
+Guardrails so "one signature moment" doesn't become "no rules at all":
+
+- **One per page.** A page-transition curtain or a preloader, not both, and
+  never more than one on the same page.
+- **Once per session, not every visit.** A page-transition curtain or
+  preloader should play the first time, then get out of the way (skip it
+  on back-navigation, cache it as seen, etc.) — it's a first impression,
+  not a tax on every reload.
+- **Still gated by `prefers-reduced-motion`.** A signature moment needs a
+  static, equally complete fallback, same as any other animation in §5.
+- **Never blocks content.** A preloader or curtain must have a hard timeout
+  and be skippable; it can delay perceived load, never actual access.
+
 ---
 
 ## 6. Voice, Imagery & Content
@@ -180,6 +234,7 @@ current summary.
 | [Pangram Pangram](https://pangrampangram.com/) | Type foundry | The typeface system in §2 (Neue Montreal / Editorial New / Right Grotesk / Fraktion Mono) and the foundry's own site convention of letting large, confident type carry the page with almost no chrome around it. |
 | [jrands.com](https://jrands.com/) | Site/portfolio reference | Logged as a working reference for a minimal, type-forward personal/portfolio treatment. **Not yet directly reviewed in detail in this pass** — this environment's network egress blocked fetching the live site. Flagged in the reference log for a follow-up pass to extract concrete layout/spacing/motion notes. |
 | [pixelorb.studio](https://pixelorb.studio/) | Site/studio reference | Logged as a working reference: a design studio site ("creative partners in an AI-first world") in the same modern, brand-forward, minimal-chrome register we're targeting. **Not yet directly reviewed in detail in this pass** — same egress limitation as above; needs a follow-up pass for concrete color/type/motion specifics. |
+| [cuedesign.space](https://cuedesign.space/) — "Weekly Drop" | Interaction/component gallery | **Reviewed directly** from user-supplied screenshots (real pixels, not a description). Source of §2.1's eyebrow-label/ruled-caption micro-patterns, §3.2's chrome-vs-content color discipline, and §5.1's signature-motion carve-out with its named idea bank. |
 | **Internal precedent** (PaySick, TrailA, BonaLab, Kehr, VUES) | Our own shipped design | See below — an audit of what's already live across our repos, so this doc reflects real practice, not just outside inspiration. |
 
 ### 7.1 Internal precedent — what we've already shipped
@@ -304,6 +359,14 @@ to it:
 
 ## 10. Changelog
 
+- **v0.3** — Added [cuedesign.space](https://cuedesign.space/) as a
+  directly-reviewed reference (real screenshots, not a description) — the
+  first external reference in this doc reviewed at pixel-level detail.
+  Added §2.1 (eyebrow label / ruled caption micro-patterns), extended §3.2
+  with a chrome-vs-content color discipline, and added §5.1 carving out
+  theatrical one-shot "signature moments" for marketing/portfolio pages
+  (with guardrails) as distinct from product-UI motion. Full analysis in
+  `design/references.md`.
 - **v0.2** — Audited existing design across the org's other repos
   (PaySick, TrailA, BonaLab, Kehr, VUES, SANParks, the legacy profile-repo
   app) and logged them as internal precedent (§7.1, full detail in
