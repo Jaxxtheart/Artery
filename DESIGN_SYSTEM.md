@@ -1,6 +1,6 @@
 # Org Design System
 
-**Status:** v0.1 — living document
+**Status:** v0.2 — living document
 **Owner:** Jaxxtheart
 **Canonical source:** [`Jaxxtheart/Artery` → `DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md)
 
@@ -180,6 +180,42 @@ current summary.
 | [Pangram Pangram](https://pangrampangram.com/) | Type foundry | The typeface system in §2 (Neue Montreal / Editorial New / Right Grotesk / Fraktion Mono) and the foundry's own site convention of letting large, confident type carry the page with almost no chrome around it. |
 | [jrands.com](https://jrands.com/) | Site/portfolio reference | Logged as a working reference for a minimal, type-forward personal/portfolio treatment. **Not yet directly reviewed in detail in this pass** — this environment's network egress blocked fetching the live site. Flagged in the reference log for a follow-up pass to extract concrete layout/spacing/motion notes. |
 | [pixelorb.studio](https://pixelorb.studio/) | Site/studio reference | Logged as a working reference: a design studio site ("creative partners in an AI-first world") in the same modern, brand-forward, minimal-chrome register we're targeting. **Not yet directly reviewed in detail in this pass** — same egress limitation as above; needs a follow-up pass for concrete color/type/motion specifics. |
+| **Internal precedent** (PaySick, TrailA, BonaLab, Kehr, VUES) | Our own shipped design | See below — an audit of what's already live across our repos, so this doc reflects real practice, not just outside inspiration. |
+
+### 7.1 Internal precedent — what we've already shipped
+
+Before this doc existed, five product repos had already independently
+converged on variations of the same philosophy in §1: near-monochrome
+neutrals + a disciplined accent, Inter/system-sans as the recurring body
+choice, 8px-family spacing grids, pill or generously-rounded buttons. The
+full audit lives in [`design/references.md`](./design/references.md#internal-precedent--existing-repos);
+summary:
+
+- **PaySick** already has its own complete `DESIGN_SYSTEM.md` — coral/red
+  gradient brand, 8px spacing grid, custom stroke-based SVG icon set. The
+  clearest existing precedent for "one accent + monochrome neutrals" (§3).
+- **TrailA** (`traila`) is the org's best example of §8–§9's intent
+  actually built: a raw token file (`tailwind.tokens.js`) merged into
+  Tailwind, with components told to prefer semantic CSS custom properties
+  (`--ta-bg`, `--ta-accent-action`, …) from a separate `tokens.css` over raw
+  palette classes. Worth studying as a structural template for a new
+  Next.js/Tailwind project's own token layer (§8.1 below).
+- **BonaLab** is a real, shipped counter-example on type: fully
+  monochrome brand (not just monochrome-as-neutral-base) with ultralight
+  weights and *wide* tracking on headlines — the inverse of §2's default
+  tight-tracking guidance. Proof the org's actual range is wider than one
+  default, when a product's identity calls for it.
+- **Kehr** pairs two functionally-named hues (teal "trust/healing" + amber
+  "progress/care") rather than one accent — a disciplined exception to §3's
+  "exactly one accent" rule, and a good model for *when* a second brand hue
+  is justified.
+- **VUES** confirms Inter + a mono face (JetBrains Mono/Fira Code) as a
+  recurring real choice for data-dense/dashboard products specifically, and
+  its 4-step semantic risk scale (`low`/`moderate`/`elevated`/`high`) is a
+  reusable pattern for any product surfacing severity or status data.
+
+**None of these repos are being modified by this doc.** They're documented
+as precedent, not retrofitted — see the policy note in §9.
 
 > **Note on the two site references above:** direct access to `jrands.com`
 > and `pixelorb.studio` was blocked by network policy in the session that
@@ -207,9 +243,42 @@ CSS custom properties, Style Dictionary, etc.) rather than re-typing values.
 Treat the token *names and structure* as the stable contract across repos;
 each project supplies its own accent value and, if it diverges, records why.
 
+### 8.1 Recommended implementation pattern (Next.js / Tailwind projects)
+
+Two independent internal precedents point at the same structure — worth
+following for any *new* Next.js + Tailwind project rather than inventing a
+third pattern:
+
+1. **shadcn/ui's HSL-custom-property convention** (used by BonaLab and
+   Kehr): define semantic slots (`--background`, `--primary`,
+   `--primary-foreground`, `--border`, …) as HSL triples in `:root` (and a
+   `.dark` block, per Kehr), then reference them in `tailwind.config.ts` as
+   `hsl(var(--primary))` etc. Pairs naturally with `tailwindcss-animate`
+   and Radix UI primitives if the project needs accessible component
+   primitives.
+2. **A project-level semantic tokens file on top of the org tokens**
+   (TrailA's pattern): keep a raw palette in one token file, merge it into
+   Tailwind's theme, but have components consume *semantic* custom
+   properties (`--ta-bg`, `--ta-accent-action`, `--ta-text-muted`) from a
+   separate `tokens.css` rather than raw palette utility classes. This is
+   the closest existing implementation of what `design/tokens.json` +
+   this doc describe in the abstract — adapt its naming scheme
+   (`--<project-prefix>-<slot>`) for a new project rather than starting
+   from nothing.
+
+Either pattern is fine; don't run both in the same project.
+
 ---
 
 ## 9. How other repos use this
+
+**This is opt-in for existing projects and the default for new ones.**
+Nothing here requires PaySick, TrailA, BonaLab, Kehr, VUES, SANParks, or any
+other already-shipped repo to change — they're documented as precedent in
+§7.1, not retrofitted. Every **new** project going forward should reference
+this doc from day one using the pattern below; an existing project can adopt
+it whenever it next touches its design layer, but that's a choice for that
+project, not a requirement driven by this doc's existence.
 
 Since projects live in separate repositories, don't copy this file — link
 to it:
@@ -235,6 +304,14 @@ to it:
 
 ## 10. Changelog
 
+- **v0.2** — Audited existing design across the org's other repos
+  (PaySick, TrailA, BonaLab, Kehr, VUES, SANParks, the legacy profile-repo
+  app) and logged them as internal precedent (§7.1, full detail in
+  `design/references.md`). Added §8.1 recommended token pattern for new
+  Next.js/Tailwind projects, drawn from TrailA's and BonaLab/Kehr's
+  existing structures. Clarified in §9 that referencing this doc is the
+  default for new projects and opt-in for existing ones — no existing repo
+  was modified as part of this pass.
 - **v0.1** — Initial version. Establishes typography (Pangram Pangram
   catalog), base color/spacing/motion principles, and the reference-log
   process. `jrands.com` and `pixelorb.studio` logged as references pending
