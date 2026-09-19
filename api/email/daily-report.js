@@ -4,7 +4,7 @@
  */
 
 const { sendDailyTradingReport } = require('../../lib/trading-email-templates');
-const { supabase } = require('../../lib/supabase');
+const { supabase, getInitialCapital } = require('../../lib/supabase');
 const { createCoinbaseClient } = require('../../lib/coinbase/client');
 
 module.exports = async function handler(req, res) {
@@ -53,8 +53,10 @@ module.exports = async function handler(req, res) {
       executedTrades = todayTrades || [];
     }
 
+    const initialCapital = await getInitialCapital(totalValue);
+
     await sendDailyTradingReport({
-      portfolio: { totalValue, cashBalance },
+      portfolio: { totalValue, cashBalance, initialCapital },
       signals,
       executedTrades,
       closedPositions: 0,

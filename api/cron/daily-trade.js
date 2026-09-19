@@ -7,7 +7,7 @@
 
 const { createCoinbaseClient } = require('../../lib/coinbase/client');
 const { getAllSignals, STRATEGY_SYMBOLS } = require('../../lib/trading/strategies');
-const { supabase } = require('../../lib/supabase');
+const { supabase, getInitialCapital } = require('../../lib/supabase');
 const {
   calculatePositionSize,
   calculateStopLevels,
@@ -209,9 +209,9 @@ module.exports = async function handler(req, res) {
     }
 
     // 6. Save portfolio snapshot
+    const initialCapital = await getInitialCapital(totalValue);
     if (supabase) {
       const today = new Date().toISOString().split('T')[0];
-      const initialCapital = parseFloat(process.env.INITIAL_CAPITAL || '1377');
       const totalPnL = totalValue - initialCapital;
 
       await supabase.from('portfolio_snapshots').upsert({
@@ -231,7 +231,7 @@ module.exports = async function handler(req, res) {
       try {
         const { sendDailyTradingReport } = require('../../lib/trading-email-templates');
         await sendDailyTradingReport({
-          portfolio: { totalValue, cashBalance },
+          portfolio: { totalValue, cashBalance, initialCapital },
           signals,
           executedTrades: tradesExecuted,
           closedPositions: 0,

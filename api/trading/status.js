@@ -3,7 +3,7 @@
  * Returns current portfolio status: positions, P&L, portfolio snapshot
  */
 
-const { supabase } = require('../../lib/supabase');
+const { supabase, getInitialCapital } = require('../../lib/supabase');
 const { createCoinbaseClient } = require('../../lib/coinbase/client');
 const { calculateRiskMetrics } = require('../../lib/trading/risk-manager');
 
@@ -65,7 +65,7 @@ module.exports = async function handler(req, res) {
     }
 
     const riskMetrics = calculateRiskMetrics(openPositions, totalValue);
-    const initialCapital = parseFloat(process.env.INITIAL_CAPITAL || '1377');
+    const initialCapital = await getInitialCapital(totalValue);
     const totalPnL = totalValue - initialCapital;
     const totalPnLPct = (totalPnL / initialCapital) * 100;
 

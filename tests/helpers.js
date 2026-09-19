@@ -95,6 +95,12 @@ function makeSupabase(tableConfigs = {}) {
   // Shaped like lib/supabase module exports
   return {
     supabase: { from },
+    // Pass-through stubs for the dynamic P&L baseline helpers — tests that
+    // don't care about the baseline just get back whatever fallback the
+    // handler passed in (e.g. the live totalValue), matching production
+    // behavior when no baseline row has been set yet.
+    getInitialCapital: async (fallback) => fallback,
+    setInitialCapital: async (value) => ({ initial_capital: value }),
     chains,          // extra — ignored by handler, used by tests
   };
 }
