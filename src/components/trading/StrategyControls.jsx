@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Play, Pause, Zap, Mail, Shield } from 'lucide-react';
+import { Play, Pause, Zap, Mail, Shield, RotateCcw } from 'lucide-react';
 
-export default function StrategyControls({ onRunCron, onSendReport, riskMetrics }) {
+export default function StrategyControls({ onRunCron, onSendReport, onResetBaseline, riskMetrics }) {
   const [tradingEnabled, setTradingEnabled] = useState(true);
   const [running, setRunning] = useState(null);
   const [lastRun, setLastRun] = useState(null);
@@ -36,6 +36,30 @@ export default function StrategyControls({ onRunCron, onSendReport, riskMetrics 
       if (data.success) alert('Daily report sent to jaxxtheart@gmail.com');
       else alert(`Error: ${data.error}`);
       if (onSendReport) onSendReport(data);
+    } catch (err) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setRunning(null);
+    }
+  }
+
+  async function handleResetBaseline() {
+    if (!confirm('Reset the P&L baseline to the current portfolio value? Past P&L history is unaffected.')) return;
+    const adminPassword = prompt('Enter admin password to reset baseline:');
+    if (!adminPassword) return;
+    setRunning('baseline');
+    try {
+      const res = await fetch(`${apiBase}/api/trading/reset-baseline`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${adminPassword}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message);
+        if (onResetBaseline) onResetBaseline(data);
+      } else {
+        alert(`Error: ${data.error}`);
+      }
     } catch (err) {
       alert(`Error: ${err.message}`);
     } finally {
@@ -123,6 +147,22 @@ export default function StrategyControls({ onRunCron, onSendReport, riskMetrics 
         >
           <Mail size={14} />
           {running === 'email' ? 'Sending…' : 'Send Daily Report'}
+        </button>
+
+        <button
+          onClick={handleResetBaseline}
+          disabled={running === 'baseline'}
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+            background: '#FAFAF9', color: '#6A6A6A', border: '1px solid #EBEBEA',
+            fontSize: 13, fontWeight: 500, padding: '10px 0', borderRadius: 6, cursor: 'pointer', transition: 'background 0.2s',
+            opacity: running === 'baseline' ? 0.5 : 1,
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = '#F5F5F4'}
+          onMouseLeave={e => e.currentTarget.style.background = '#FAFAF9'}
+        >
+          <RotateCcw size={14} />
+          {running === 'baseline' ? 'Resetting…' : 'Reset Baseline to Current'}
         </button>
       </div>
 
