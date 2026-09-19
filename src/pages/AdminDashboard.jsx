@@ -87,8 +87,10 @@ export default function AdminDashboard() {
       const response = await fetch(`${API_URL}/api/applications/list`, {
         headers: { 'Authorization': `Bearer ${password}` }
       });
-      if (!response.ok) throw new Error('Failed to load applications');
       const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.details || data.error || `HTTP ${response.status}`);
+      }
       setApplications(data.applications || []);
     } catch (err) {
       setError('Failed to load applications. ' + err.message);
