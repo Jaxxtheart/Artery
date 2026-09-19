@@ -9,7 +9,7 @@
     "dev:full": "concurrently \"npm run dev\" \"npm run server\"",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test --test-reporter spec tests/coinbase-client.test.js tests/cron-daily-trade.test.js tests/execute-trade.test.js"
+    "test": "node --test --test-reporter spec tests/coinbase-client.test.js tests/cron-daily-trade.test.js tests/execute-trade.test.js tests/scoring-engine.test.js"
   },
   "dependencies": {
     "react": "^18.2.0",
