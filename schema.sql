@@ -195,6 +195,20 @@ CREATE TABLE IF NOT EXISTS signals (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Bot settings (single-row): dynamic P&L baseline, reset to current
+-- portfolio value via POST /api/trading/reset-baseline instead of being
+-- hardcoded in source.
+CREATE TABLE IF NOT EXISTS bot_settings (
+  id INTEGER PRIMARY KEY DEFAULT 1,
+  initial_capital DECIMAL(18, 8) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  CONSTRAINT bot_settings_single_row CHECK (id = 1)
+);
+
+ALTER TABLE bot_settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Service role full access on bot_settings"
+  ON bot_settings FOR ALL TO service_role USING (true) WITH CHECK (true);
+
 -- Manual cost basis entries for externally purchased holdings
 CREATE TABLE IF NOT EXISTS holdings_cost_basis (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,

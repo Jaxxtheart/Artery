@@ -219,11 +219,11 @@ module.exports = async (req, res) => {
     res.status(201).json({
       success: true,
       applicationId: applicationId,
-      message: 'Application submitted successfully',
+      message: 'Application submitted successfully! Check your email for confirmation.',
       nextSteps: scoringResult.overallScore >= 70
         ? 'Our team will review your application within 3-5 business days.'
         : 'Thank you for your application. We will be in touch if we need additional information.',
-      message: 'Application submitted successfully! Check your email for confirmation.'
+      scoring: scoringResult
     });
 
   } catch (error) {

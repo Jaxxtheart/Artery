@@ -1,8 +1,5 @@
 import { TrendingUp, TrendingDown, DollarSign, Target } from 'lucide-react';
 
-const INITIAL_CAPITAL = 1441;
-const TARGET = 2441;
-
 function MetricCard({ label, value, subValue, subColor, icon: Icon, iconColor }) {
   return (
     <div style={{ background: '#fff', border: '1px solid #EBEBEA', borderRadius: 10, padding: '18px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
@@ -27,8 +24,9 @@ export default function PortfolioSummary({ portfolio }) {
     );
   }
 
-  const { totalValue = 0, initialCapital = INITIAL_CAPITAL, totalPnL = 0, totalPnLPct = 0, liveAssets = [] } = portfolio;
-  const progressPct = Math.min((totalValue / TARGET) * 100, 100);
+  const { totalValue = 0, initialCapital = totalValue, totalPnL = 0, totalPnLPct = 0, liveAssets = [] } = portfolio;
+  const target = initialCapital * 1.15;
+  const progressPct = Math.min((totalValue / target) * 100, 100);
   const isProfitable = totalPnL >= 0;
   const fmt = (v) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(v);
 
@@ -55,14 +53,14 @@ export default function PortfolioSummary({ portfolio }) {
         />
         <MetricCard
           label="Initial Capital"
-          value={fmt(INITIAL_CAPITAL)}
-          subValue="Starting amount"
+          value={fmt(initialCapital)}
+          subValue="Baseline"
           icon={DollarSign}
           iconColor="#C0C0C0"
         />
         <MetricCard
           label="Target Profit"
-          value={fmt(TARGET)}
+          value={fmt(target)}
           subValue={`${progressPct.toFixed(1)}% reached`}
           icon={Target}
           iconColor="#FF5A5F"
@@ -72,7 +70,7 @@ export default function PortfolioSummary({ portfolio }) {
       {/* Progress bar */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#A0A0A0', marginBottom: 6 }}>
-          <span>Progress to $1,000 profit goal</span>
+          <span>Progress to +15% goal</span>
           <span style={{ color: '#FF5A5F', fontWeight: 500 }}>{progressPct.toFixed(1)}%</span>
         </div>
         <div style={{ background: '#F5F5F4', borderRadius: 999, height: 6, overflow: 'hidden' }}>
@@ -83,8 +81,8 @@ export default function PortfolioSummary({ portfolio }) {
           }} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#C0C0C0', marginTop: 4 }}>
-          <span>{fmt(INITIAL_CAPITAL)}</span>
-          <span>{fmt(TARGET)}</span>
+          <span>{fmt(initialCapital)}</span>
+          <span>{fmt(target)}</span>
         </div>
       </div>
 

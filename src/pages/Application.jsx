@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 // Icon components
@@ -112,20 +112,41 @@ const normalizeData = (data) => {
   };
 };
 
+const DRAFT_KEY = 'artery_application_draft';
+
+const defaultData = {
+  founderName: '', email: '', phone: '', linkedin: '',
+  companyName: '', country: '', industry: '', stage: '',
+  problem: '', solution: '', impact: '',
+  revenue: '', users: '', growth: '', team: '',
+  fundingAmount: '', useOfFunds: '', runway: '', pitchDeck: null
+};
+
 export default function Application() {
-  const [step, setStep] = useState(1);
-  const [data, setData] = useState({
-    founderName: '', email: '', phone: '', linkedin: '',
-    companyName: '', country: '', industry: '', stage: '',
-    problem: '', solution: '', impact: '',
-    revenue: '', users: '', growth: '', team: '',
-    fundingAmount: '', useOfFunds: '', runway: '', pitchDeck: null
+  const [step, setStep] = useState(() => {
+    try {
+      const saved = localStorage.getItem(DRAFT_KEY);
+      return saved ? (JSON.parse(saved).step || 1) : 1;
+    } catch { return 1; }
+  });
+  const [data, setData] = useState(() => {
+    try {
+      const saved = localStorage.getItem(DRAFT_KEY);
+      return saved ? { ...defaultData, ...JSON.parse(saved).data } : { ...defaultData };
+    } catch { return { ...defaultData }; }
   });
   const [errors, setErrors] = useState({});
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
   const [scoring, setScoring] = useState(null);
   const [apiError, setApiError] = useState(null);
+
+  useEffect(() => {
+    try {
+      const { pitchDeck, ...serializable } = data;
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ data: serializable, step }));
+    } catch {}
+  }, [data, step]);
 
   const steps = [
     { n: 1, t: 'About You', Icon: Users },
@@ -199,6 +220,7 @@ export default function Application() {
 
       if (result.success) {
         setScoring(result.scoring);
+        try { localStorage.removeItem(DRAFT_KEY); } catch {}
         setDone(true);
       } else {
         setApiError(result.error || 'Failed to submit application');

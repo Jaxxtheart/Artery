@@ -142,6 +142,7 @@ artery-capital/
 
 ## 📚 Documentation
 
+- **[DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md)** - Org-wide design system (typography, color, spacing, motion) shared across all Jaxxtheart/Artery repos
 - **[DEVELOPMENT.md](./DEVELOPMENT.md)** - Complete development guide
 - **[PHASE4_IMPLEMENTATION.md](./PHASE4_IMPLEMENTATION.md)** - Backend integration details
 - **[ADMIN_SYSTEM.md](./ADMIN_SYSTEM.md)** - Admin system documentation
@@ -252,6 +253,11 @@ Run `schema.sql` in Supabase to create all tables, indexes, and policies.
 - **Professional**: Clean, modern aesthetic
 - **African-focused**: Mission-driven design
 - **Mobile-first**: Responsive on all devices
+
+This product also inherits the org-wide baseline in
+**[DESIGN_SYSTEM.md](./DESIGN_SYSTEM.md)** (typography, color/spacing
+scale, motion) — this file is the canonical source for all Jaxxtheart /
+Artery repos, not just this one.
 
 ---
 

@@ -7,6 +7,21 @@
  * 3. Harambeans Principles: African context, impact, sustainability, local relevance
  *
  * Outputs: Overall score, category breakdowns, current valuation, 3-5 year projected valuation
+ *
+ * Design note (v2): the original version leaned heavily on cheap-to-fake proxies —
+ * raw text length, keyword stuffing, and "has a LinkedIn URL" — which a founder could
+ * game without improving the underlying business. This version keeps the same category
+ * weights (so it's a drop-in replacement) but reworks each category's internals to:
+ *   - reward genuine specificity (numbers, named comparisons) instead of length alone
+ *   - penalize buzzword/keyword stuffing instead of rewarding it
+ *   - weight structured fields (country, stage, team size) over freeform prose where
+ *     a structured field is a harder-to-fake signal
+ *   - cross-check claims for plausibility (e.g. team size vs. claimed stage) instead
+ *     of taking every self-reported number at face value
+ *   - fix currency/percentage parsing, which previously mis-parsed shorthand like
+ *     "$1.2M" or "50k" (see parseAmount/parsePercent)
+ * None of this replaces human due diligence — it's still a self-reported form — but it
+ * raises the cost of gaming the score and reduces false signal from formatting alone.
  */
 
 class ScoringEngine {
@@ -47,6 +62,16 @@ class ScoringEngine {
       'mvp': { min: 300000, max: 800000, multiplier: 2.0 },
       'revenue': { min: 500000, max: 2000000, multiplier: 3.0 },
       'scaling': { min: 1000000, max: 5000000, multiplier: 4.0 }
+    };
+
+    // Expected team-size range per stage, used as a plausibility check rather than
+    // a hard rule — a mismatch is a signal worth a human looking twice, not a reject.
+    this.expectedTeamRangeByStage = {
+      'idea': [1, 3],
+      'prototype': [1, 5],
+      'mvp': [2, 8],
+      'revenue': [3, 15],
+      'scaling': [5, 50]
     };
 
     // African market growth factors (conservative estimates)
@@ -94,173 +119,195 @@ class ScoringEngine {
       recommendation: this.getRecommendation(totalScore),
       strengths: this.identifyStrengths(scores),
       concerns: this.identifyConcerns(scores),
+      flags: this.identifyFlags(application, scores),
       nextSteps: this.getNextSteps(totalScore, application)
     };
   }
 
   /**
    * Y Combinator: Founder Quality Assessment
-   * Evaluates team credibility, experience, and commitment
+   * Evaluates team credibility, experience, and commitment.
+   *
+   * v2 change: LinkedIn/email format signals are weak on their own (a $10 domain and a
+   * pasted URL cost a founder nothing), so their weight is reduced. Team size is
+   * cross-checked against claimed stage instead of rewarded linearly — a 15-person
+   * team at "idea" stage is a red flag, not a bonus.
    */
   scoreFounderQuality(app) {
     let score = 0;
 
-    // LinkedIn presence (strong signal of professionalism) - 30 points
-    if (app.linkedin && app.linkedin.includes('linkedin.com')) {
-      score += 30;
-    } else if (app.linkedin && app.linkedin.length > 0) {
-      score += 15; // Some link provided
-    }
-
-    // Email quality (professional domain vs free email) - 20 points
-    if (app.email) {
-      const emailDomain = app.email.split('@')[1];
-      if (emailDomain && !['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com'].includes(emailDomain.toLowerCase())) {
-        score += 20; // Custom domain = more professional
-      } else {
-        score += 10; // Free email is okay for early stage
-      }
-    }
-
-    // Team size (shows traction in hiring) - 30 points
-    const teamSize = parseInt(app.team) || 0;
-    if (teamSize >= 10) {
-      score += 30;
-    } else if (teamSize >= 5) {
-      score += 25;
-    } else if (teamSize >= 3) {
+    // LinkedIn — require an actual profile-shaped URL, not just the bare domain.
+    // "linkedin.com" alone (e.g. a copy-pasted homepage link) no longer scores the same
+    // as a real profile/company URL. Max 20 pts (was 30).
+    const linkedin = (app.linkedin || '').toLowerCase();
+    if (/linkedin\.com\/(in|company)\/[a-z0-9\-_%]+/i.test(linkedin)) {
       score += 20;
-    } else if (teamSize >= 2) {
-      score += 15;
-    } else {
-      score += 5; // Solo founder
+    } else if (linkedin.length > 0) {
+      score += 8; // some link provided, but not a recognizable profile format
     }
 
-    // Contact completeness - 20 points
+    // Email — reduced weight. A free-email founder is not meaningfully less serious
+    // than one with a custom domain (YC explicitly doesn't penalize this); we still
+    // give a small edge to a verified custom domain but no longer treat gmail as a
+    // demerit worth double the "free email" founder. Max 10 pts (was 20).
+    if (app.email && app.email.includes('@')) {
+      const emailDomain = (app.email.split('@')[1] || '').toLowerCase();
+      const freeProviders = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com'];
+      score += freeProviders.includes(emailDomain) ? 7 : 10;
+    }
+
+    // Team size — genuine signal, but scaled down from the original (was up to 30
+    // regardless of stage) because raw headcount alone rewards inflating the number.
+    // Max 30 pts.
+    const teamSize = this.parseTeamSize(app.team);
+    if (teamSize >= 10) score += 30;
+    else if (teamSize >= 5) score += 25;
+    else if (teamSize >= 3) score += 20;
+    else if (teamSize >= 2) score += 15;
+    else score += 6; // solo founder — not disqualifying, just lower baseline
+
+    // Contact completeness — unchanged, structural signal. Max 20 pts.
     const hasPhone = app.phone && app.phone.length > 5;
     const hasName = app.founderName && app.founderName.length > 2;
     if (hasPhone && hasName) score += 20;
-    else if (hasPhone || hasName) score += 10;
+    else if (hasPhone || hasName) score += 8;
 
-    return Math.min(score, 100);
+    // Plausibility check — does the claimed team size make sense for the claimed
+    // stage? Rewards *consistency* (a real, structural signal) rather than raw size,
+    // which closes the incentive to simply claim a bigger team. Max 20 pts.
+    const stage = (app.stage || '').toLowerCase();
+    const expectedRange = this.expectedTeamRangeByStage[stage];
+    if (expectedRange) {
+      const [min, max] = expectedRange;
+      if (teamSize >= min && teamSize <= max) {
+        score += 20;
+      } else if (teamSize > max) {
+        score += 6; // oversized team for an early stage — plausible but worth a look
+      } else {
+        score += 10; // undersized for a later stage — common and not alarming
+      }
+    } else {
+      score += 10; // unknown stage, neutral credit
+    }
+
+    return Math.max(0, Math.min(Math.round(score), 100));
   }
 
   /**
    * Y Combinator: Traction Assessment
-   * Growth is the best signal - actual metrics matter most
+   * Growth is the best signal - actual metrics matter most.
+   *
+   * v2 change: the original regex (`text.match(/\d+/g).join('')`) mis-parsed any
+   * shorthand amount — "$1.2M" parsed as 12, "$85,000" only worked by the accident of
+   * always having 3-digit comma groups. Replaced with parseAmount/parsePercent, which
+   * correctly handle k/m/thousand/million suffixes and decimals.
    */
   scoreTraction(app) {
     let score = 0;
 
-    // Revenue (strongest signal) - 40 points
-    const revenue = app.revenue ? app.revenue.toLowerCase() : '';
-    if (revenue.includes('$') || revenue.includes('usd') || revenue.includes('r ')) {
-      // Extract numbers
-      const numbers = revenue.match(/\d+/g);
-      if (numbers && numbers.length > 0) {
-        const amount = parseInt(numbers.join(''));
+    // Revenue - strongest signal - 40 points
+    const revenueText = (app.revenue || '').toLowerCase();
+    if (revenueText.includes('pre-revenue') || revenueText.includes('no revenue') || revenueText.trim() === '0') {
+      score += 5; // at least they're honest
+    } else {
+      const amount = this.parseAmount(revenueText);
+      if (amount !== null) {
         if (amount >= 100000) score += 40;
         else if (amount >= 50000) score += 35;
         else if (amount >= 10000) score += 30;
         else if (amount >= 1000) score += 20;
         else score += 10;
       }
-    } else if (revenue.includes('pre-revenue') || revenue.includes('no revenue') || revenue === '0') {
-      score += 5; // At least they're honest
     }
 
     // Users/Customers - 30 points
-    const users = app.users ? app.users.toLowerCase() : '';
-    if (users.includes('k') || users.includes('000')) {
-      const numbers = users.match(/\d+/g);
-      if (numbers && numbers.length > 0) {
-        const userCount = parseInt(numbers[0]);
-        if (users.includes('k')) {
-          const actualUsers = userCount * 1000;
-          if (actualUsers >= 100000) score += 30;
-          else if (actualUsers >= 50000) score += 25;
-          else if (actualUsers >= 10000) score += 20;
-          else score += 15;
-        } else if (userCount >= 10000) {
-          score += 20;
-        }
-      }
-    } else {
-      const numbers = users.match(/\d+/g);
-      if (numbers && numbers.length > 0) {
-        const userCount = parseInt(numbers[0]);
-        if (userCount >= 1000) score += 15;
-        else if (userCount >= 100) score += 10;
-        else score += 5;
-      }
+    const usersAmount = this.parseAmount(app.users);
+    if (usersAmount !== null) {
+      if (usersAmount >= 100000) score += 30;
+      else if (usersAmount >= 50000) score += 25;
+      else if (usersAmount >= 10000) score += 20;
+      else if (usersAmount >= 1000) score += 15;
+      else if (usersAmount >= 100) score += 10;
+      else score += 5;
     }
 
     // Growth rate (YC loves 10% weekly growth) - 30 points
-    const growth = app.growth ? app.growth.toLowerCase() : '';
-    if (growth.includes('%')) {
-      const numbers = growth.match(/\d+/g);
-      if (numbers && numbers.length > 0) {
-        const rate = parseInt(numbers[0]);
-        if (growth.includes('week')) {
-          if (rate >= 10) score += 30; // 10%+ weekly = exceptional
-          else if (rate >= 5) score += 25;
-          else score += 20;
-        } else if (growth.includes('month')) {
-          if (rate >= 20) score += 30; // 20%+ monthly = great
-          else if (rate >= 10) score += 25;
-          else score += 15;
-        } else if (growth.includes('year')) {
-          if (rate >= 100) score += 20; // 100%+ YoY = good
-          else if (rate >= 50) score += 15;
-          else score += 10;
-        }
+    const growthText = (app.growth || '').toLowerCase();
+    const rate = this.parsePercent(growthText);
+    if (rate !== null) {
+      if (growthText.includes('week')) {
+        if (rate >= 10) score += 30;
+        else if (rate >= 5) score += 25;
+        else score += 18;
+      } else if (growthText.includes('month')) {
+        if (rate >= 20) score += 30;
+        else if (rate >= 10) score += 25;
+        else score += 15;
+      } else if (growthText.includes('year')) {
+        if (rate >= 100) score += 20;
+        else if (rate >= 50) score += 15;
+        else score += 10;
+      } else {
+        score += 8; // a % was given but no timeframe — some credit, low confidence
       }
     }
 
-    return Math.min(score, 100);
+    // Verifiability nudge: a striking traction claim with zero supporting evidence
+    // (no pitch deck) is worth flagging for diligence rather than silently trusted.
+    // This is a small, capped adjustment — it does not zero out the claim.
+    const claimedBigNumbers = (usersAmount !== null && usersAmount >= 10000) ||
+      (this.parseAmount(revenueText) !== null && this.parseAmount(revenueText) >= 50000);
+    if (claimedBigNumbers && !app.pitchDeck) {
+      score -= 8;
+    }
+
+    return Math.max(0, Math.min(Math.round(score), 100));
   }
 
   /**
    * Y Combinator: Product-Market Fit
    * Do people want what you're building?
+   *
+   * v2 change: previously, hitting a length threshold with any single number/$/% in the
+   * text (`assessTextQuality`) was enough for full marks — trivially gameable by padding.
+   * Now the specificity gate is required for the top bucket, and generic filler
+   * ("we provide", "platform for"...) density is penalized instead of ignored.
    */
   scoreProductMarketFit(app) {
     let score = 0;
 
-    // Problem clarity and depth - 35 points
-    const problemLength = app.problem ? app.problem.length : 0;
-    const problemQuality = this.assessTextQuality(app.problem);
-    if (problemLength >= 200 && problemQuality.specific) {
-      score += 35;
-    } else if (problemLength >= 100) {
-      score += 25;
-    } else if (problemLength >= 50) {
-      score += 15;
+    score += this.scoreNarrativeField(app.problem, 35);
+    score += this.scoreNarrativeField(app.solution, 35);
+    score += this.scoreNarrativeField(app.impact, 30);
+
+    return Math.max(0, Math.min(Math.round(score), 100));
+  }
+
+  /**
+   * Shared narrative scorer used across problem/solution/impact. Requires genuine
+   * specificity (quantified claims, not just length) to reach the top bucket, and
+   * penalizes generic filler language and buzzword stuffing.
+   */
+  scoreNarrativeField(text, maxPoints) {
+    if (!text) return 0;
+    const length = text.length;
+    const quality = this.assessTextQuality(text);
+    const fillerPenalty = this.genericFillerPenalty(text);
+
+    let points;
+    if (length >= 200 && quality.specific) {
+      points = maxPoints;
+    } else if (length >= 150 && quality.specific) {
+      points = maxPoints * 0.85;
+    } else if (length >= 100) {
+      points = maxPoints * 0.65;
+    } else if (length >= 50) {
+      points = maxPoints * 0.4;
+    } else {
+      points = 0;
     }
 
-    // Solution clarity and differentiation - 35 points
-    const solutionLength = app.solution ? app.solution.length : 0;
-    const solutionQuality = this.assessTextQuality(app.solution);
-    if (solutionLength >= 200 && solutionQuality.specific) {
-      score += 35;
-    } else if (solutionLength >= 100) {
-      score += 25;
-    } else if (solutionLength >= 50) {
-      score += 15;
-    }
-
-    // Impact articulation - 30 points
-    const impactLength = app.impact ? app.impact.length : 0;
-    const impactQuality = this.assessTextQuality(app.impact);
-    if (impactLength >= 200 && impactQuality.specific) {
-      score += 30;
-    } else if (impactLength >= 100) {
-      score += 20;
-    } else if (impactLength >= 50) {
-      score += 10;
-    }
-
-    return Math.min(score, 100);
+    return Math.max(0, points - fillerPenalty);
   }
 
   /**
@@ -296,106 +343,137 @@ class ScoringEngine {
     };
     score += stageScore[stage] || 10;
 
-    // Geographic market - 30 points
+    // Geographic market - 30 points (structured field, not self-reported prose)
     const country = app.country ? app.country.toLowerCase() : 'other';
     const marketData = this.africanMarkets[country] || this.africanMarkets['other'];
     score += marketData.growth * 24; // Scale to 30 points max
 
-    return Math.min(score, 100);
+    return Math.max(0, Math.min(Math.round(score), 100));
   }
 
   /**
    * Silicon Valley: Innovation & Disruption
    * Is this a 10x improvement or incremental?
+   *
+   * v2 change: previously `+10 per keyword` uncapped meant stuffing "revolutionary,
+   * novel, unique, proprietary, breakthrough, innovative" into two sentences alone
+   * could add up to 60 points regardless of whether the claim made sense. Now:
+   *  - technology-signal keywords give small, capped, diminishing credit
+   *  - genuine comparative/differentiation language ("unlike", "compared to") is
+   *    rewarded instead, since it indicates the founder actually thought through why
+   *    they're different, not just that they used the word "unique"
+   *  - hype-word density (buzzwords per word of text) is penalized past a threshold
    */
   scoreInnovation(app) {
-    let score = 50; // Baseline assumption of some innovation
+    const text = `${app.problem || ''} ${app.solution || ''} ${app.impact || ''}`;
+    const lower = text.toLowerCase();
+    let score = 50; // baseline
 
-    // Keywords that signal innovation
-    const innovationKeywords = [
+    const techSignals = [
       'ai', 'artificial intelligence', 'machine learning', 'blockchain',
-      'disrupting', 'revolutionary', 'first', 'unique', 'patent',
-      'proprietary', 'breakthrough', 'novel', 'innovative'
+      'patent', 'proprietary', 'algorithm', 'automation'
     ];
+    const techMatches = techSignals.filter(kw => lower.includes(kw)).length;
+    score += Math.min(techMatches * 5, 20); // capped, diminishing — was up to 50 uncapped
 
-    const text = `${app.problem} ${app.solution} ${app.impact}`.toLowerCase();
+    const differentiationSignals = [
+      'unlike', 'compared to', 'instead of', 'unlike existing',
+      'competitors', 'alternative to', 'whereas', 'in contrast'
+    ];
+    const diffMatches = differentiationSignals.filter(kw => lower.includes(kw)).length;
+    score += Math.min(diffMatches * 8, 24); // rewards actually-explained differentiation
 
-    const keywordMatches = innovationKeywords.filter(kw => text.includes(kw)).length;
-    score += keywordMatches * 10; // Up to 50 bonus points for innovation signals
+    // Hype-word stuffing penalty
+    const hypeWords = [
+      'revolutionary', 'disrupting', 'disruptive', 'game-changing',
+      'breakthrough', 'unique', 'novel', 'innovative', 'world-class', 'cutting-edge'
+    ];
+    const density = this.buzzwordDensity(text, hypeWords);
+    if (density > 0.02) {
+      score -= Math.min((density - 0.02) * 600, 30);
+    }
 
-    // Deduct for overly generic language
-    const genericKeywords = ['we provide', 'we offer', 'platform for', 'service that'];
-    const genericMatches = genericKeywords.filter(kw => text.includes(kw)).length;
+    // Generic boilerplate penalty
+    const genericPhrases = ['we provide', 'we offer', 'platform for', 'service that'];
+    const genericMatches = genericPhrases.filter(kw => lower.includes(kw)).length;
     score -= genericMatches * 5;
 
-    return Math.max(0, Math.min(score, 100));
+    return Math.max(0, Math.min(Math.round(score), 100));
   }
 
   /**
    * Harambeans: African Impact
    * Does this solve real African problems at scale?
+   *
+   * v2 change: country is a structured dropdown field — much harder to fake than
+   * prose — so it now carries more weight than freeform keyword mentions. Keyword
+   * stuffing ("Africa... Kenya... unbanked... rural...") is capped much lower, and the
+   * "impact scale" bucket now requires the impact statement to actually be specific
+   * (numbers/metrics), not just contain a word like "thousands".
    */
   scoreAfricanImpact(app) {
     let score = 0;
+    const text = `${app.problem || ''} ${app.solution || ''} ${app.impact || ''}`.toLowerCase();
+    const country = (app.country || '').toLowerCase();
 
-    // African-specific problem indicators - 40 points
-    const africanKeywords = [
-      'africa', 'african', 'kenya', 'nigeria', 'ghana', 'rwanda',
-      'south africa', 'lagos', 'nairobi', 'accra', 'kigali',
-      'sme', 'informal sector', 'financial inclusion', 'unbanked',
-      'rural', 'farmers', 'healthcare access', 'education gap'
-    ];
-
-    const text = `${app.problem} ${app.solution} ${app.impact} ${app.country}`.toLowerCase();
-    const africanMatches = africanKeywords.filter(kw => text.includes(kw)).length;
-    score += Math.min(africanMatches * 8, 40);
-
-    // Impact scale - 35 points
-    const impactKeywords = [
-      'million', 'thousands', 'communities', 'scale', 'mass',
-      'underserved', 'marginalized', 'employment', 'jobs'
-    ];
-    const impactMatches = impactKeywords.filter(kw => text.includes(kw)).length;
-    score += Math.min(impactMatches * 7, 35);
-
-    // Local founder advantage - 25 points
-    const country = app.country ? app.country.toLowerCase() : '';
-    if (africanKeywords.some(kw => country.includes(kw))) {
-      score += 25; // Building in Africa = better context
+    // Verified geography - 35 points (was folded into a 25pt bucket alongside prose)
+    const africanCountries = ['nigeria', 'kenya', 'south africa', 'ghana', 'rwanda', 'egypt'];
+    if (africanCountries.some(c => country.includes(c))) {
+      score += 35;
+    } else if (country && country !== 'other') {
+      score += 15; // some geographic specificity given, just not in our core markets
     } else {
-      score += 10; // Benefit of doubt
+      score += 5;
     }
 
-    return Math.min(score, 100);
+    // Local-relevance language - 25 points max (was 40), diminishing returns per
+    // distinct concept mentioned rather than a flat count of any repeated keyword
+    const localityKeywords = [
+      'informal sector', 'financial inclusion', 'unbanked', 'rural',
+      'smallholder', 'last-mile', 'healthcare access', 'education gap', 'sme'
+    ];
+    const localMatches = localityKeywords.filter(kw => text.includes(kw)).length;
+    score += Math.min(localMatches * 5, 25);
+
+    // Impact scale - 30 points, gated on the impact statement actually being specific
+    // (contains real numbers/metrics), not just containing a scale-sounding word
+    const impactQuality = this.assessTextQuality(app.impact);
+    if (impactQuality.specific) {
+      score += 30;
+    } else if (app.impact && app.impact.length >= 50) {
+      score += 12;
+    }
+
+    return Math.max(0, Math.min(Math.round(score), 100));
   }
 
   /**
    * Harambeans: Sustainability
    * Can this business survive and thrive long-term?
+   *
+   * v2 change: use-of-funds is now scored on specificity (an itemized, numbered
+   * budget) rather than raw character length, and a pitch deck is treated as a small
+   * corroborating-evidence signal.
    */
   scoreSustainability(app) {
     let score = 0;
 
-    // Revenue model clarity - 40 points
-    const useOfFunds = app.useOfFunds ? app.useOfFunds.toLowerCase() : '';
-    const hasRevenue = app.revenue && !app.revenue.toLowerCase().includes('pre-revenue');
+    // Revenue model clarity - 35 points
+    const hasRevenue = app.revenue && !app.revenue.toLowerCase().includes('pre-revenue') && app.revenue.trim() !== '0';
+    if (hasRevenue) score += 20;
 
-    if (hasRevenue) {
-      score += 25; // Already making money = sustainable
-    }
-
-    if (useOfFunds.length >= 100) {
-      score += 15; // Clear plan for funds
-    } else if (useOfFunds.length >= 50) {
-      score += 10;
+    const useOfFundsQuality = this.assessTextQuality(app.useOfFunds);
+    if (app.useOfFunds && app.useOfFunds.length >= 100 && useOfFundsQuality.specific) {
+      score += 15; // an itemized plan (numbers = actual budget line items)
+    } else if (app.useOfFunds && app.useOfFunds.length >= 50) {
+      score += 7;
     }
 
     // Runway planning - 30 points
-    const runway = app.runway ? app.runway.toLowerCase() : '';
+    const runway = (app.runway || '').toLowerCase();
     if (runway.includes('month')) {
-      const numbers = runway.match(/\d+/g);
-      if (numbers && numbers.length > 0) {
-        const months = parseInt(numbers[0]);
+      const months = this.parseAmount(runway);
+      if (months !== null) {
         if (months >= 18) score += 30;
         else if (months >= 12) score += 25;
         else if (months >= 6) score += 20;
@@ -403,22 +481,18 @@ class ScoringEngine {
       }
     }
 
-    // Funding amount appropriateness - 30 points
-    const fundingAmount = app.fundingAmount ? app.fundingAmount.toLowerCase() : '';
-    const numbers = fundingAmount.match(/\d+/g);
-    if (numbers && numbers.length > 0) {
-      const amount = parseInt(numbers.join(''));
-      // $15k is the target - score based on how close they are
-      if (amount >= 10000 && amount <= 25000) {
-        score += 30; // Right range
-      } else if (amount >= 5000 && amount <= 50000) {
-        score += 20; // Reasonable
-      } else {
-        score += 10; // Too high/low but we'll work with it
-      }
+    // Funding amount appropriateness - 25 points
+    const fundingAmount = this.parseAmount(app.fundingAmount);
+    if (fundingAmount !== null) {
+      if (fundingAmount >= 10000 && fundingAmount <= 25000) score += 25;
+      else if (fundingAmount >= 5000 && fundingAmount <= 50000) score += 17;
+      else score += 8;
     }
 
-    return Math.min(score, 100);
+    // Corroborating evidence - 10 points
+    if (app.pitchDeck) score += 10;
+
+    return Math.max(0, Math.min(Math.round(score), 100));
   }
 
   /**
@@ -511,13 +585,87 @@ class ScoringEngine {
   }
 
   /**
-   * Helper: Assess text quality
+   * Helper: parse a numeric amount from freeform text, correctly handling
+   * commas, decimals, and k/thousand/m/million/b/billion shorthand.
+   * "$1.2M" -> 1200000, "$85,000" -> 85000, "50k users" -> 50000
+   */
+  parseAmount(text) {
+    if (!text) return null;
+    const cleaned = String(text).toLowerCase().replace(/,/g, '');
+    // \b after the suffix group is essential: without it, "85000 monthly revenue"
+    // matches the bare "m" suffix out of "monthly" and reads as $85 billion.
+    const match = cleaned.match(/(\d+(?:\.\d+)?)\s*(thousand|million|billion|mm|mil|bn|k|m|b)?\b/);
+    if (!match) return null;
+    let amount = parseFloat(match[1]);
+    if (isNaN(amount)) return null;
+    const suffix = match[2];
+    if (suffix === 'k' || suffix === 'thousand') amount *= 1000;
+    else if (suffix === 'm' || suffix === 'mm' || suffix === 'mil' || suffix === 'million') amount *= 1000000;
+    else if (suffix === 'b' || suffix === 'bn' || suffix === 'billion') amount *= 1000000000;
+    return amount;
+  }
+
+  /**
+   * Helper: parse a percentage value from freeform text, decimal-safe.
+   * "25% month-over-month" -> 25, "12.5%" -> 12.5
+   */
+  parsePercent(text) {
+    if (!text) return null;
+    const match = String(text).toLowerCase().match(/(\d+(?:\.\d+)?)\s*%/);
+    if (!match) return null;
+    const value = parseFloat(match[1]);
+    return isNaN(value) ? null : value;
+  }
+
+  /**
+   * Helper: parse team size from either a number ("5") or a range ("8-15"),
+   * taking the lower bound of a range as the conservative estimate.
+   */
+  parseTeamSize(teamField) {
+    if (!teamField) return 0;
+    const match = String(teamField).match(/(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+  }
+
+  /**
+   * Helper: buzzwords found per word of text — a density measure so a short
+   * paragraph stuffed with hype words is penalized more than a long, substantive one
+   * that happens to use one of the same words once.
+   */
+  buzzwordDensity(text, keywords) {
+    if (!text) return 0;
+    const words = text.split(/\s+/).filter(Boolean);
+    if (words.length === 0) return 0;
+    const lower = text.toLowerCase();
+    const matches = keywords.reduce((count, kw) => {
+      return count + (lower.split(kw).length - 1);
+    }, 0);
+    return matches / words.length;
+  }
+
+  /**
+   * Helper: penalize generic filler phrases relative to text length, so padding a
+   * narrative with boilerplate doesn't pass as substance.
+   */
+  genericFillerPenalty(text) {
+    if (!text) return 0;
+    const fillerPhrases = ['we provide', 'we offer', 'platform for', 'service that', 'solution for'];
+    const lower = text.toLowerCase();
+    const matches = fillerPhrases.filter(p => lower.includes(p)).length;
+    return matches * 4;
+  }
+
+  /**
+   * Helper: Assess text quality — requires an actual quantified claim (a number,
+   * currency figure, or percentage) alongside enough length to be substantive.
+   * A single stray "$" or digit is easy to insert; this is a floor, not a strong
+   * quality proof, which is why callers still gate on length/context around it.
    */
   assessTextQuality(text) {
     if (!text) return { specific: false, detailed: false };
 
-    const wordCount = text.split(/\s+/).length;
-    const hasNumbers = /\d+/.test(text);
+    const wordCount = text.split(/\s+/).filter(Boolean).length;
+    const hasNumbers = /\d/.test(text);
     const hasSpecifics = hasNumbers || text.includes('$') || text.includes('%');
 
     return {
@@ -577,6 +725,32 @@ class ScoringEngine {
     });
 
     return concerns.length > 0 ? concerns : ['No major concerns identified'];
+  }
+
+  /**
+   * Flags that call out application data worth a human double-check — separate from
+   * the score itself, since these are about verifiability/consistency rather than
+   * quality per se (e.g. a great application with an unverifiable revenue claim
+   * shouldn't silently lose points with no explanation of why).
+   */
+  identifyFlags(app, scores) {
+    const flags = [];
+    const teamSize = this.parseTeamSize(app.team);
+    const stage = (app.stage || '').toLowerCase();
+    const expectedRange = this.expectedTeamRangeByStage[stage];
+
+    if (expectedRange && teamSize > expectedRange[1]) {
+      flags.push(`Claimed team size (${teamSize}) is unusually large for "${app.stage}" stage — verify in interview`);
+    }
+
+    const usersAmount = this.parseAmount(app.users);
+    const revenueAmount = this.parseAmount((app.revenue || '').toLowerCase().includes('pre-revenue') ? '' : app.revenue);
+    const bigClaim = (usersAmount !== null && usersAmount >= 10000) || (revenueAmount !== null && revenueAmount >= 50000);
+    if (bigClaim && !app.pitchDeck) {
+      flags.push('Significant traction claimed with no supporting pitch deck — request evidence');
+    }
+
+    return flags;
   }
 
   /**
