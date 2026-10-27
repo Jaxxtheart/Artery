@@ -28,14 +28,21 @@ export default function Admin() {
     setLoading(true);
 
     try {
-      if (password === (import.meta.env.VITE_ADMIN_PASSWORD || 'admin123')) {
-        sessionStorage.setItem('adminAuth', password);
-        navigate('/admin/dashboard');
-      } else {
+      // Validate against the API's ADMIN_PASSWORD rather than a build-time
+      // copy in the bundle — the two drifting apart let login "succeed"
+      // while every admin API call was rejected with 401.
+      const API_URL = import.meta.env.VITE_API_URL || '';
+      const response = await fetch(`${API_URL}/api/applications/list?verify=1`, {
+        headers: { 'Authorization': `Bearer ${password}` }
+      });
+      if (response.status === 401) {
         setError('Invalid password');
+        return;
       }
+      sessionStorage.setItem('adminAuth', password);
+      navigate('/admin/dashboard');
     } catch (err) {
-      setError('Login failed');
+      setError('Login failed: ' + err.message);
     } finally {
       setLoading(false);
     }

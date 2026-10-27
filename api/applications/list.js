@@ -42,6 +42,11 @@ module.exports = async (req, res) => {
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
 
+    // Login page uses this to check the password without loading data
+    if (req.query.verify) {
+      return res.status(200).json({ success: true });
+    }
+
     // Get query parameters for filtering
     const { status, email } = req.query;
     const filters = {};
@@ -83,8 +88,13 @@ module.exports = async (req, res) => {
         pitchDeckUrl: dbApp.pitch_deck_url
       };
 
-      // Calculate scoring
-      const scoring = scoringEngine.scoreApplication(applicationData);
+      // Calculate scoring — one malformed row must not take down the whole list
+      let scoring = null;
+      try {
+        scoring = scoringEngine.scoreApplication(applicationData);
+      } catch (error) {
+        console.error(`Scoring failed for application ${dbApp.id}:`, error);
+      }
 
       // Return in format expected by admin UI
       return {

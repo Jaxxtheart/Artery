@@ -87,6 +87,12 @@ export default function AdminDashboard() {
       const response = await fetch(`${API_URL}/api/applications/list`, {
         headers: { 'Authorization': `Bearer ${password}` }
       });
+      if (response.status === 401) {
+        // Stored password no longer matches the server's ADMIN_PASSWORD
+        sessionStorage.removeItem('adminAuth');
+        navigate('/admin');
+        return;
+      }
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.details || data.error || `HTTP ${response.status}`);
@@ -329,7 +335,7 @@ export default function AdminDashboard() {
                         <div style={{ fontSize: 12, color: '#8A8A8A', marginTop: 2, textTransform: 'capitalize' }}>{app.applicationData?.stage}</div>
                       </td>
                       <td style={{ padding: '14px 20px' }}>
-                        <span style={{ fontSize: 26, fontWeight: 700, color: '#1A1A1A' }}>{app.scoring?.overallScore}</span>
+                        <span style={{ fontSize: 26, fontWeight: 700, color: '#1A1A1A' }}>{app.scoring?.overallScore ?? '—'}</span>
                       </td>
                       <td style={{ padding: '14px 20px' }}>
                         <span style={{
@@ -343,7 +349,7 @@ export default function AdminDashboard() {
                             return { background: '#FEF2F2', color: '#B91C1C', borderColor: '#FECACA' };
                           })()
                         }}>
-                          {app.scoring?.rating}
+                          {app.scoring?.rating ?? 'Unscored'}
                         </span>
                       </td>
                       <td style={{ padding: '14px 20px', fontSize: 13, color: '#8A8A8A' }}>

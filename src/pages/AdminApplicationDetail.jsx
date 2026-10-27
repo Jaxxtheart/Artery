@@ -63,11 +63,16 @@ export default function AdminApplicationDetail() {
         }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to load application');
+      if (response.status === 401) {
+        sessionStorage.removeItem('adminAuth');
+        navigate('/admin');
+        return;
       }
 
       const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.details || data.error || `HTTP ${response.status}`);
+      }
       setApplication(data.application);
     } catch (err) {
       console.error('Error loading application:', err);
